@@ -1,7 +1,6 @@
 """Strategy decision application helpers."""
 
-from elevator_sim.core.models import Elevator, Passenger, PassengerStatus
-from elevator_sim.simulation.events import apply_direction
+from elevator_sim.core.models import Elevator, ElevatorServicePhase, Passenger, PassengerStatus
 from elevator_sim.strategies.base import ElevatorDecision
 
 
@@ -22,8 +21,32 @@ def apply_decisions(
         elevator = elevator_by_id.get(decision.elevator_id)
         if elevator is None:
             raise ValueError(f"unknown elevator ID in strategy decision: {decision.elevator_id}")
-        apply_direction(elevator, decision.direction, floors)
+        apply_stop_floors(elevator, decision.stop_floors, floors)
         assign_passengers(passengers, elevator, decision.assigned_passenger_ids, assigned_elevator_ids)
+
+
+def apply_stop_floors(elevator: Elevator, stop_floors: tuple[int, ...], floors: int) -> None:
+    """Validate and apply an elevator's ordered stop queue."""
+    normalized_stop_floors = normalize_stop_floors(stop_floors, floors)
+    if elevator.service_phase == ElevatorServicePhase.READY:
+        elevator.target_floors = normalized_stop_floors
+        return
+
+    future_stop_floors = [floor for floor in normalized_stop_floors if floor != elevator.current_floor]
+    elevator.target_floors = [elevator.current_floor, *future_stop_floors]
+
+
+def normalize_stop_floors(stop_floors: tuple[int, ...], floors: int) -> list[int]:
+    """Return valid stop floors with duplicates removed while preserving order."""
+    normalized_stop_floors: list[int] = []
+    seen_floors: set[int] = set()
+    for stop_floor in stop_floors:
+        if stop_floor < 1 or stop_floor > floors:
+            raise ValueError(f"stop floor is outside building bounds: {stop_floor}")
+        if stop_floor not in seen_floors:
+            normalized_stop_floors.append(stop_floor)
+            seen_floors.add(stop_floor)
+    return normalized_stop_floors
 
 
 def assign_passengers(

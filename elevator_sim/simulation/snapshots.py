@@ -26,6 +26,7 @@ def build_elevator_snapshot(elevator: Elevator) -> ElevatorSnapshot:
         id=elevator.id,
         current_floor=elevator.current_floor,
         direction=elevator.direction,
+        service_phase=elevator.service_phase,
         passenger_count=len(elevator.passengers),
         capacity=elevator.capacity,
         target_floors=tuple(elevator.target_floors),

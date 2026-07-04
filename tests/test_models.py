@@ -48,3 +48,11 @@ def test_models_validate_building_specific_bounds() -> None:
 
     with pytest.raises(ValueError, match="current_floor"):
         elevator.validate_for_building(floors=3)
+
+
+def test_elevator_validates_initial_target_floors() -> None:
+    """Elevator building validation rejects target floors outside configured bounds."""
+    elevator = Elevator(id=1, current_floor=1, capacity=2, target_floors=[4])
+
+    with pytest.raises(ValueError, match="target_floor"):
+        elevator.validate_for_building(floors=3)

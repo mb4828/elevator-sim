@@ -2,10 +2,32 @@
 
 import pytest
 
-from elevator_sim.core.models import Direction, Elevator, PassengerStatus, SimulationSnapshot
+from elevator_sim.core.models import (
+    Direction,
+    Elevator,
+    ElevatorServicePhase,
+    Passenger,
+    PassengerStatus,
+    SimulationSnapshot,
+)
 from elevator_sim.simulation import Simulation
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
 from elevator_sim.workload.passenger_source import PassengerSource
+
+
+class StaticPassengerSource:
+    """Test passenger source with explicit passenger requests."""
+
+    def __init__(self, passengers: tuple[Passenger, ...]) -> None:
+        self.passengers = passengers
+
+    def passengers_at(self, time: int) -> tuple[Passenger, ...]:
+        """Return passengers scheduled for the requested tick."""
+        return tuple(passenger for passenger in self.passengers if passenger.request_time == time)
+
+    def is_exhausted(self, time: int) -> bool:
+        """Return whether all configured passengers have been released."""
+        return all(passenger.request_time < time for passenger in self.passengers)
 
 
 class DirectPassengerStrategy(ElevatorStrategy):
@@ -14,29 +36,82 @@ class DirectPassengerStrategy(ElevatorStrategy):
     def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
         elevator = state.elevators[0]
         passenger = next(
-            passenger for passenger in state.passengers if passenger.status != PassengerStatus.COMPLETED
+            (passenger for passenger in state.passengers if passenger.status != PassengerStatus.COMPLETED),
+            None,
         )
+        if passenger is None:
+            return [ElevatorDecision(elevator.id)]
         assigned_ids = () if passenger.status == PassengerStatus.RIDING else (passenger.id,)
         target_floor = (
             passenger.destination_floor
             if passenger.status == PassengerStatus.RIDING
             else passenger.start_floor
         )
-        return [ElevatorDecision(elevator.id, _direction_toward(elevator.current_floor, target_floor), assigned_ids)]
+        return [ElevatorDecision(elevator.id, stop_floors=(target_floor,), assigned_passenger_ids=assigned_ids)]
 
 
 class InvalidElevatorStrategy(ElevatorStrategy):
     """Test strategy that references a missing elevator."""
 
     def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
-        return [ElevatorDecision(elevator_id=999, direction=Direction.IDLE)]
+        return [ElevatorDecision(elevator_id=999)]
 
 
 class BoundaryStrategy(ElevatorStrategy):
-    """Test strategy that repeatedly tries to move past the top floor."""
+    """Test strategy that stops at the current boundary floor."""
 
     def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
-        return [ElevatorDecision(elevator_id=1, direction=Direction.UP)]
+        return [ElevatorDecision(elevator_id=1, stop_floors=(2,))]
+
+
+class StopQueueStrategy(ElevatorStrategy):
+    """Test strategy that returns a fixed stop queue."""
+
+    def __init__(self, stop_floors: tuple[int, ...], assigned_passenger_ids: tuple[int, ...] = ()) -> None:
+        self.stop_floors = stop_floors
+        self.assigned_passenger_ids = assigned_passenger_ids
+
+    def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
+        waiting_passenger_ids = {
+            passenger.id for passenger in state.passengers if passenger.status == PassengerStatus.WAITING
+        }
+        return [
+            ElevatorDecision(
+                elevator_id=state.elevators[0].id,
+                stop_floors=self.stop_floors,
+                assigned_passenger_ids=tuple(
+                    passenger_id
+                    for passenger_id in self.assigned_passenger_ids
+                    if passenger_id in waiting_passenger_ids
+                ),
+            )
+        ]
+
+
+class DwellStrategy(ElevatorStrategy):
+    """Test strategy that updates stops as passengers finish service phases."""
+
+    def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
+        elevator = state.elevators[0]
+        waiting_passengers = [
+            passenger for passenger in state.passengers if passenger.status == PassengerStatus.WAITING
+        ]
+        riding_passengers = [
+            passenger for passenger in state.passengers if passenger.status == PassengerStatus.RIDING
+        ]
+        stop_floors = tuple(
+            dict.fromkeys(
+                [passenger.start_floor for passenger in waiting_passengers]
+                + [passenger.destination_floor for passenger in riding_passengers]
+            )
+        )
+        return [
+            ElevatorDecision(
+                elevator_id=elevator.id,
+                stop_floors=stop_floors,
+                assigned_passenger_ids=tuple(passenger.id for passenger in waiting_passengers),
+            )
+        ]
 
 
 def test_run_completes_single_passenger_trip() -> None:
@@ -55,8 +130,8 @@ def test_run_completes_single_passenger_trip() -> None:
     assert result.passengers[0].status == PassengerStatus.COMPLETED
 
 
-def test_step_clamps_illegal_boundary_movement() -> None:
-    """Simulation prevents a strategy from moving an elevator outside floor bounds."""
+def test_step_keeps_elevator_idle_at_current_boundary_stop() -> None:
+    """Simulation keeps an elevator idle when its next stop is the current boundary floor."""
     simulation = Simulation(
         floors=2,
         elevators=[Elevator(id=1, current_floor=2, capacity=1)],
@@ -83,9 +158,137 @@ def test_unknown_elevator_decision_raises_error() -> None:
         simulation.step()
 
 
-def _direction_toward(current_floor: int, target_floor: int) -> Direction:
-    if target_floor > current_floor:
-        return Direction.UP
-    if target_floor < current_floor:
-        return Direction.DOWN
-    return Direction.IDLE
+def test_elevator_skips_intermediate_floor_without_stopping() -> None:
+    """Elevator passes intermediate floors unless they are first in the stop queue."""
+    simulation = Simulation(
+        floors=5,
+        elevators=[Elevator(id=1, current_floor=1, capacity=1)],
+        strategy=StopQueueStrategy(stop_floors=(4,)),
+        passenger_source=StaticPassengerSource(()),
+    )
+
+    first_snapshot = simulation.step()
+    second_snapshot = simulation.step()
+
+    assert first_snapshot.elevators[0].current_floor == 2
+    assert first_snapshot.elevators[0].service_phase == ElevatorServicePhase.READY
+    assert second_snapshot.elevators[0].current_floor == 3
+    assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.READY
+
+
+def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
+    """Elevator service consumes stop, drop-off, and pickup ticks after arrival."""
+    onboard_passenger = Passenger(
+        id=1,
+        request_time=0,
+        start_floor=1,
+        destination_floor=2,
+        status=PassengerStatus.RIDING,
+        pickup_time=0,
+        elevator_id=1,
+    )
+    waiting_passenger = Passenger(id=2, request_time=0, start_floor=2, destination_floor=3)
+    elevator = Elevator(id=1, current_floor=1, capacity=2, passengers=[onboard_passenger])
+    simulation = Simulation(
+        floors=3,
+        elevators=[elevator],
+        strategy=DwellStrategy(),
+        passenger_source=StaticPassengerSource((waiting_passenger,)),
+    )
+
+    arrived = simulation.step()
+    stopped = simulation.step()
+    dropped_off = simulation.step()
+    picked_up = simulation.step()
+    moved_again = simulation.step()
+
+    assert arrived.elevators[0].current_floor == 2
+    assert arrived.elevators[0].service_phase == ElevatorServicePhase.STOPPING
+    assert stopped.elevators[0].passenger_count == 1
+    assert stopped.passengers[0].status == PassengerStatus.WAITING
+    assert stopped.elevators[0].service_phase == ElevatorServicePhase.DROPPING_OFF
+    assert dropped_off.elevators[0].passenger_count == 0
+    assert dropped_off.passengers[0].status == PassengerStatus.WAITING
+    assert dropped_off.elevators[0].service_phase == ElevatorServicePhase.PICKING_UP
+    assert picked_up.passengers[0].status == PassengerStatus.RIDING
+    assert picked_up.elevators[0].current_floor == 2
+    assert moved_again.elevators[0].current_floor == 3
+
+
+def test_current_floor_stop_waits_before_pickup() -> None:
+    """Stop at the current floor starts service timing instead of picking up immediately."""
+    passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=1, capacity=1)],
+        strategy=StopQueueStrategy(stop_floors=(1,), assigned_passenger_ids=(1,)),
+        passenger_source=StaticPassengerSource((passenger,)),
+    )
+
+    first_snapshot = simulation.step()
+    second_snapshot = simulation.step()
+    third_snapshot = simulation.step()
+    fourth_snapshot = simulation.step()
+
+    assert first_snapshot.passengers[0].status == PassengerStatus.WAITING
+    assert first_snapshot.elevators[0].service_phase == ElevatorServicePhase.STOPPING
+    assert second_snapshot.passengers[0].status == PassengerStatus.WAITING
+    assert third_snapshot.passengers[0].status == PassengerStatus.WAITING
+    assert fourth_snapshot.passengers[0].status == PassengerStatus.RIDING
+
+
+def test_passenger_who_cannot_fit_is_unassigned_and_stays_waiting() -> None:
+    """Passenger remains waiting and becomes unassigned if the elevator is full at pickup."""
+    onboard_passenger = Passenger(
+        id=1,
+        request_time=0,
+        start_floor=1,
+        destination_floor=3,
+        status=PassengerStatus.RIDING,
+        pickup_time=0,
+        elevator_id=1,
+    )
+    waiting_passenger = Passenger(id=2, request_time=0, start_floor=1, destination_floor=2)
+    elevator = Elevator(id=1, current_floor=1, capacity=1, passengers=[onboard_passenger])
+    simulation = Simulation(
+        floors=3,
+        elevators=[elevator],
+        strategy=StopQueueStrategy(stop_floors=(1,), assigned_passenger_ids=(2,)),
+        passenger_source=StaticPassengerSource((waiting_passenger,)),
+    )
+
+    simulation.step()
+    simulation.step()
+    simulation.step()
+    snapshot = simulation.step()
+
+    assert snapshot.passengers[0].status == PassengerStatus.WAITING
+    assert snapshot.passengers[0].elevator_id is None
+    assert snapshot.elevators[0].assigned_passenger_ids == ()
+
+
+def test_invalid_stop_floor_raises_error() -> None:
+    """Simulation rejects strategy stop floors outside building bounds."""
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=1, capacity=1)],
+        strategy=StopQueueStrategy(stop_floors=(4,)),
+        passenger_source=StaticPassengerSource(()),
+    )
+
+    with pytest.raises(ValueError, match="stop floor"):
+        simulation.step()
+
+
+def test_duplicate_stop_floors_are_collapsed() -> None:
+    """Simulation removes duplicate stop floors while preserving order."""
+    simulation = Simulation(
+        floors=5,
+        elevators=[Elevator(id=1, current_floor=1, capacity=1)],
+        strategy=StopQueueStrategy(stop_floors=(3, 3, 2, 3)),
+        passenger_source=StaticPassengerSource(()),
+    )
+
+    snapshot = simulation.step()
+
+    assert snapshot.elevators[0].target_floors == (3, 2)

@@ -153,10 +153,11 @@ model does not know the simulation's configured floor count at construction time
 It stores:
 
 - current floor;
-- direction;
+- observed movement direction;
+- service phase;
 - onboard passengers;
 - assigned waiting passenger IDs;
-- target floors.
+- ordered target floors.
 
 Building-specific validation lives on `Elevator.validate_for_building(floors)`.
 
@@ -182,15 +183,13 @@ Implemented order:
 2. Release passengers scheduled for the current time.
 3. Build a snapshot and ask the strategy for decisions.
 4. Validate and apply strategy decisions.
-5. Move all elevators by at most one floor.
-6. Drop off onboard passengers at each elevator's new floor.
-7. Pick up assigned waiting passengers at each elevator's current floor.
-8. Increment simulation time.
-9. Evaluate completion.
-10. Return a new snapshot.
+5. Apply one movement or service event to each elevator.
+6. Increment simulation time.
+7. Evaluate completion.
+8. Return a new snapshot.
 
-Movement, drop-off, and pickup are intentionally separate global phases. This means every elevator moves before any
-drop-offs or pickups occur.
+An elevator moves one floor per movement tick, but it can pass intermediate floors if they are not in the ordered stop
+queue. When an elevator reaches a stop floor, later ticks are consumed by stopping, dropping off, and picking up.
 
 ---
 
@@ -231,7 +230,8 @@ Validates and applies strategy decisions:
 - unknown passenger IDs are rejected;
 - non-waiting passenger assignments are rejected;
 - assigning one passenger to multiple elevators is rejected;
-- proposed direction is clamped to building boundaries.
+- stop floors outside building bounds are rejected;
+- duplicate stop floors are collapsed while preserving order.
 
 Assignment ownership is indexed once per decision application, then checked by passenger ID.
 
@@ -239,10 +239,13 @@ Assignment ownership is indexed once per decision application, then checked by p
 
 Applies per-tick events:
 
-- direction clamping;
-- elevator movement;
+- stop ticks;
+- elevator movement toward the next stop;
 - passenger drop-off;
 - passenger pickup.
+
+If a waiting assigned passenger cannot board because the elevator is full, the passenger remains waiting and is
+unassigned so a future strategy decision can assign them again.
 
 ### `snapshots.py`
 
@@ -258,7 +261,7 @@ Strategies implement `ElevatorStrategy`:
 @dataclass(frozen=True)
 class ElevatorDecision:
     elevator_id: int
-    direction: Direction
+    stop_floors: tuple[int, ...] = ()
     assigned_passenger_ids: tuple[int, ...] = ()
 
 

@@ -23,6 +23,15 @@ class PassengerStatus(str, Enum):
     COMPLETED = "completed"
 
 
+class ElevatorServicePhase(str, Enum):
+    """Per-tick service state for an elevator at a stop floor."""
+
+    READY = "ready"
+    STOPPING = "stopping"
+    DROPPING_OFF = "dropping_off"
+    PICKING_UP = "picking_up"
+
+
 class Passenger(BaseModel):
     """A passenger request tracked through the simulation."""
 
@@ -83,6 +92,7 @@ class Elevator(BaseModel):
     current_floor: int = Field(ge=1)
     capacity: int = Field(gt=0)
     direction: Direction = Direction.IDLE
+    service_phase: ElevatorServicePhase = ElevatorServicePhase.READY
     passengers: list[Passenger] = Field(default_factory=list)
     assigned_passenger_ids: set[int] = Field(default_factory=set)
     target_floors: list[int] = Field(default_factory=list)
@@ -96,6 +106,9 @@ class Elevator(BaseModel):
         """Validate this elevator against simulation-specific building constraints."""
         if self.current_floor > floors:
             raise ValueError(f"elevator {self.id} current_floor is outside building bounds")
+        for target_floor in self.target_floors:
+            if target_floor < 1 or target_floor > floors:
+                raise ValueError(f"elevator {self.id} target_floor is outside building bounds")
 
 
 @dataclass(frozen=True)
@@ -105,6 +118,7 @@ class ElevatorSnapshot:
     id: int
     current_floor: int
     direction: Direction
+    service_phase: ElevatorServicePhase
     passenger_count: int
     capacity: int
     target_floors: tuple[int, ...]

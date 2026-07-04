@@ -3,9 +3,9 @@
 from copy import deepcopy
 
 from elevator_sim.core.metrics import SimulationResult, summarize_metrics
-from elevator_sim.core.models import Elevator, Passenger, PassengerStatus, SimulationSnapshot
+from elevator_sim.core.models import Elevator, ElevatorServicePhase, Passenger, PassengerStatus, SimulationSnapshot
 from elevator_sim.simulation.decisions import apply_decisions
-from elevator_sim.simulation.events import drop_off_passengers, move_elevators, pick_up_passengers
+from elevator_sim.simulation.events import apply_elevator_events
 from elevator_sim.simulation.snapshots import build_snapshot
 from elevator_sim.strategies.base import ElevatorStrategy
 from elevator_sim.workload.passenger_source import PassengerSource
@@ -38,11 +38,7 @@ class Simulation:
         self._release_new_passengers(self.passenger_source, self.time, self.passengers, self.floors)
         decisions = self.strategy.plan(self.snapshot())
         apply_decisions(self.elevators, self.passengers, decisions, self.floors)
-
-        # Keep these as global phases so every elevator moves before any drop-offs or pickups occur.
-        move_elevators(self.elevators, self.floors)
-        drop_off_passengers(self.elevators, self.time)
-        pick_up_passengers(self.elevators, self.passengers, self.time)
+        apply_elevator_events(self.elevators, self.passengers, self.time)
 
         self.time += 1
         self.stopped = self._should_stop()
@@ -74,7 +70,12 @@ class Simulation:
         source_done = self.passenger_source.is_exhausted(self.time)
         active_passengers = any(passenger.status != PassengerStatus.COMPLETED for passenger in self.passengers.values())
         assigned_work = any(elevator.assigned_passenger_ids or elevator.passengers for elevator in self.elevators)
-        return source_done and not active_passengers and not assigned_work
+        stop_work = any(self._has_stop_work(elevator) for elevator in self.elevators)
+        return source_done and not active_passengers and not assigned_work and not stop_work
+
+    def _has_stop_work(self, elevator: Elevator) -> bool:
+        """Return whether an elevator still has queued or in-progress stop work."""
+        return bool(elevator.target_floors or elevator.service_phase != ElevatorServicePhase.READY)
 
     def _validate_initial_state(self, floors: int, elevators: list[Elevator]) -> None:
         """Validate static simulation configuration before the first tick."""

@@ -2,7 +2,7 @@
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
-Estimated project time: <!-- project-time:start -->2h 58m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->3h 33m<!-- project-time:end -->
 
 &copy; 2026 Matt Brauner
 
@@ -63,10 +63,10 @@ uv run python main.py \
 
 Create a class that inherits from `ElevatorStrategy` and returns `ElevatorDecision` objects from `plan()`.
 Strategies receive immutable snapshots; the simulation engine enforces capacity, floor bounds, one-floor-per-tick
-movement, pickup timing, and drop-off timing.
+movement, stop timing, pickup timing, and drop-off timing.
 
 ```python
-from elevator_sim.core.models import Direction, SimulationSnapshot
+from elevator_sim.core.models import SimulationSnapshot
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
 
 
@@ -75,7 +75,7 @@ class MyStrategy(ElevatorStrategy):
         return [
             ElevatorDecision(
                 elevator_id=state.elevators[0].id,
-                direction=Direction.IDLE,
+                stop_floors=(),
                 assigned_passenger_ids=(),
             )
         ]
