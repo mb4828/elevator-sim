@@ -1,7 +1,5 @@
 """Tests for the discrete-time simulation engine."""
 
-import json
-
 import pytest
 
 from elevator_sim.core.models import (
@@ -12,7 +10,6 @@ from elevator_sim.core.models import (
     PassengerStatus,
     SimulationSnapshot,
 )
-from elevator_sim.core.state_log import write_state_log
 from elevator_sim.simulation import Simulation
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
 from elevator_sim.workload.passenger_source import PassengerSource
@@ -115,7 +112,7 @@ class DwellStrategy(ElevatorStrategy):
 
 def test_run_completes_single_passenger_trip() -> None:
     """Simulation releases, picks up, moves, drops off, and records metrics."""
-    passenger_source = PassengerSource(floors=5, probability=1.0, duration=1, seed=1)
+    passenger_source = PassengerSource(floors=5, passengers=1, duration=1, seed=7)
     simulation = Simulation(
         floors=5,
         elevators=[Elevator(id=1, current_floor=1, capacity=4)],
@@ -168,35 +165,13 @@ def test_run_records_complete_state_log() -> None:
     assert result.state_log[-1].passengers[0].status == PassengerStatus.COMPLETED
 
 
-def test_write_state_log_creates_visualization_json(tmp_path) -> None:
-    """State-log writer persists elevator positions and full system state."""
-    passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
-    simulation = Simulation(
-        floors=3,
-        elevators=[Elevator(id=1, current_floor=1, capacity=2)],
-        strategy=DirectPassengerStrategy(),
-        passenger_source=StaticPassengerSource((passenger,)),
-    )
-    result = simulation.run(max_ticks=10)
-    output_path = tmp_path / "state-log.json"
-
-    write_state_log(result.state_log, output_path)
-
-    data = json.loads(output_path.read_text(encoding="utf-8"))
-    assert data[0]["time"] == 0
-    assert data[0]["elevator_positions"] == {"1": 1}
-    assert data[-1]["complete"] is True
-    assert data[-1]["elevators"][0]["service_phase"] == "ready"
-    assert data[-1]["passengers"][0]["status"] == "completed"
-
-
 def test_step_keeps_elevator_idle_at_current_boundary_stop() -> None:
     """Simulation keeps an elevator idle when its next stop is the current boundary floor."""
     simulation = Simulation(
         floors=2,
         elevators=[Elevator(id=1, current_floor=1, capacity=1)],
         strategy=BoundaryStrategy(),
-        passenger_source=PassengerSource(floors=2, probability=0.0, duration=0, seed=1),
+        passenger_source=PassengerSource(floors=2, passengers=0, duration=0, seed=1),
     )
 
     snapshot = simulation.step()
@@ -211,7 +186,7 @@ def test_unknown_elevator_decision_raises_error() -> None:
         floors=3,
         elevators=[Elevator(id=1, current_floor=1, capacity=1)],
         strategy=InvalidElevatorStrategy(),
-        passenger_source=PassengerSource(floors=3, probability=1.0, duration=1, seed=1),
+        passenger_source=PassengerSource(floors=3, passengers=1, duration=1, seed=1),
     )
 
     with pytest.raises(ValueError, match="unknown elevator ID"):

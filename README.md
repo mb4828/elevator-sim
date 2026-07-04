@@ -2,7 +2,7 @@
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
-Estimated project time: <!-- project-time:start -->3h 38m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->4h 57m<!-- project-time:end -->
 
 &copy; 2026 Matt Brauner
 
@@ -29,24 +29,24 @@ The required runtime configuration is:
 - `--elevators`
 - `--capacity`
 
-Run one strategy by passing its dotted class path:
+Run one strategy by passing its module name under `elevator_sim.strategies`:
 
 ```bash
 uv run python main.py \
   --floors 10 \
   --elevators 2 \
   --capacity 6 \
-  --strategy your_package.your_module.MyStrategy
+  --strategy nearest_car
 ```
 
-Optional workload arguments include `--duration`, `--seed`, `--probability`, `--start-floor`, and
+Optional workload arguments include `--duration`, `--seed`, `--passengers`, `--start-floor`, and
 `--max-ticks`.
 
 Floors are zero-based. For example, `--floors 10` creates floors `0` through `9`, and `--start-floor` defaults to `0`.
 
-Completed strategy runs also write per-tick JSON state logs to the current directory by default. Each entry includes the
-elevator positions plus the full elevator and passenger state for visualization. Use `--output-dir` to choose a
-different output directory.
+Completed strategy runs also write compact JSON visualization logs to the current directory by default. Each log stores
+static elevator and passenger metadata once, plus per-tick animation frames. Use `--output-dir` to choose a different
+output directory.
 
 ## Compare Strategies
 
@@ -58,13 +58,15 @@ uv run python main.py \
   --floors 10 \
   --elevators 2 \
   --capacity 6 \
-  --strategy your_package.your_module.MyStrategy \
-  --strategy another_package.other_module.OtherStrategy \
+  --strategy nearest_car \
+  --strategy another_strategy \
 ```
 
 ## Implement A Strategy
 
 Create a class that inherits from `ElevatorStrategy` and returns `ElevatorDecision` objects from `plan()`.
+Place each strategy in its own module under `elevator_sim/strategies`; the CLI discovers the strategy class from that
+module name.
 Strategies receive immutable snapshots; the simulation engine enforces capacity, floor bounds, one-floor-per-tick
 movement, stop timing, pickup timing, and drop-off timing.
 

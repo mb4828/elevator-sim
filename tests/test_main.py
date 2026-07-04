@@ -38,10 +38,12 @@ def test_main_prints_summary_and_performance_tables(
             "4",
             "--duration",
             "1",
-            "--probability",
-            "1.0",
+            "--passengers",
+            "1",
+            "--max-ticks",
+            "80",
             "--strategy",
-            "tests.test_workload.CompletingStrategy",
+            "nearest_car",
         ]
     )
 
@@ -49,22 +51,22 @@ def test_main_prints_summary_and_performance_tables(
 
     assert exit_code == 0
     assert "Summary Statistics" in output
-    assert "Min Wait" in output
-    assert "Max Wait" in output
-    assert "Avg Wait" in output
-    assert "Min Total" in output
-    assert "Max Total" in output
-    assert "Avg Total" in output
+    assert "Wait Time" in output
+    assert "Total Time" in output
+    assert "Min" in output
+    assert "Max" in output
+    assert "Avg" in output
     assert "Performance Analysis" in output
     assert "Total Ticks" in output
     assert "Avg Passengers/Tick" in output
     assert "Peak Queue" in output
     assert "Efficiency Score" in output
 
-    state_log_path = tmp_path / "tests.test_workload.CompletingStrategy.state-log.json"
+    state_log_path = tmp_path / "nearest_car_log.json"
     state_log = json.loads(state_log_path.read_text(encoding="utf-8"))
-    assert state_log[0]["elevator_positions"] == {"1": 0}
-    assert state_log[-1]["complete"] is True
+    assert state_log["version"] == 1
+    assert state_log["frames"][0]["elevators"][0]["floor"] == 0
+    assert state_log["frames"][-1]["complete"] is True
 
 
 def test_main_requires_building_configuration() -> None:

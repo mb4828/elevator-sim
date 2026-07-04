@@ -2,6 +2,7 @@
 
 import argparse
 import importlib
+import inspect
 import logging
 import re
 from collections.abc import Sequence
@@ -31,13 +32,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     workload_config = WorkloadConfig(
         floors=args.floors,
-        probability=args.probability,
+        passengers=args.passengers,
         duration=args.duration,
         seed=args.seed,
     )
     passenger_source = create_passenger_source(workload_config)
 
-    strategies = {path: _load_strategy_factory(path) for path in args.strategy}
+    strategies = {name: _load_strategy_factory(name) for name in args.strategy}
     if not strategies:
         _print_no_strategy_result(len(passenger_source.passengers))
         return 0
@@ -75,7 +76,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     optional_options = parser.add_argument_group("optional")
     optional_options.add_argument(
-        "--strategy", metavar="PATH", action="append", default=[], help="Dotted strategy class path."
+        "--strategy",
+        metavar="NAME",
+        action="append",
+        default=[],
+        help="Strategy module name under elevator_sim.strategies.",
     )
     optional_options.add_argument(
         "--start-floor", type=int, metavar="INT", default=0, help="Starting floor for every elevator. [Default: 0]"
@@ -87,14 +92,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--seed", type=int, metavar="INT", default=42, help="Random workload seed. [Default: 42]"
     )
     optional_options.add_argument(
-        "--probability",
-        type=float,
-        metavar="FLOAT",
-        default=0.25,
-        help="Passenger generation probability per tick. [Default: 0.25]",
+        "--passengers",
+        type=int,
+        metavar="INT",
+        default=50,
+        help="Number of random passengers to generate. [Default: 50]",
     )
     optional_options.add_argument(
-        "--max-ticks", type=int, metavar="INT", default=100_000, help="Maximum ticks per simulation. [Default: 100,000]"
+        "--max-ticks", type=int, metavar="INT", default=1_000, help="Maximum ticks per simulation. [Default: 1,000]"
     )
     optional_options.add_argument(
         "--output-dir",
@@ -106,14 +111,21 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_strategy_factory(path: str) -> type[ElevatorStrategy]:
-    """Load and validate an elevator strategy class from a dotted import path."""
-    module_name, separator, class_name = path.rpartition(".")
-    if not separator:
-        raise ValueError(f"strategy must be a dotted class path: {path}")
-    strategy_class = getattr(importlib.import_module(module_name), class_name)
+def _load_strategy_factory(name: str) -> type[ElevatorStrategy]:
+    """Load the strategy class from an elevator_sim.strategies submodule."""
+    module_name = f"elevator_sim.strategies.{name}"
+    strategy_classes = [
+        strategy_class
+        for _, strategy_class in inspect.getmembers(importlib.import_module(module_name), inspect.isclass)
+        if issubclass(strategy_class, ElevatorStrategy)
+        and strategy_class is not ElevatorStrategy
+        and strategy_class.__module__ == module_name
+    ]
+    if len(strategy_classes) != 1:
+        raise ValueError(f"strategy module must define exactly one ElevatorStrategy subclass: {module_name}")
+    strategy_class = strategy_classes[0]
     if not issubclass(strategy_class, ElevatorStrategy):
-        raise TypeError(f"{path} is not an ElevatorStrategy")
+        raise TypeError(f"{module_name}.{strategy_class.__name__} is not an ElevatorStrategy")
     return strategy_class
 
 
@@ -143,7 +155,7 @@ def _print_results(workload_size: int, results: list[StrategyComparisonResult]) 
 def _write_state_logs(output_dir: Path, results: list[StrategyComparisonResult]) -> None:
     """Write one state log file for each completed strategy run."""
     for comparison in results:
-        output_path = output_dir / f"{_safe_file_stem(comparison.strategy_name)}.state-log.json"
+        output_path = output_dir / f"{_safe_file_stem(comparison.strategy_name)}_log.json"
         write_state_log(comparison.result.state_log, output_path)
 
 

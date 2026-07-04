@@ -284,10 +284,10 @@ The project contains placeholders only:
 
 The only implemented workload source is `PassengerSource`.
 
-It uses seeded Bernoulli arrivals:
+It uses seeded random arrivals:
 
-- each tick has an arrival probability;
-- each arrival creates one passenger;
+- the configured passenger count is generated exactly;
+- each passenger receives a random request time within the configured duration;
 - origin and destination are random valid floors;
 - origin and destination cannot match;
 - the full passenger tuple is generated at initialization.
@@ -309,7 +309,7 @@ Because generation is seeded and precomputed, the same workload configuration pr
 `WorkloadConfig` stores workload settings:
 
 - floors;
-- arrival probability;
+- passenger count;
 - duration;
 - seed.
 
@@ -353,7 +353,7 @@ Optional options:
 - `--start-floor`
 - `--duration`
 - `--seed`
-- `--probability`
+- `--passengers`
 - `--max-ticks`
 
 No strategy is required. If no strategy is provided, the CLI reports the generated passenger count and exits.

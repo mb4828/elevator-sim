@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from rich import box
 from rich.table import Table
 
 from elevator_sim.core.metrics import SimulationResult
@@ -20,7 +21,7 @@ class WorkloadConfig:
     """Configuration used to create identical seeded passenger workloads."""
 
     floors: int
-    probability: float
+    passengers: int
     duration: int
     seed: int
 
@@ -38,7 +39,7 @@ def create_passenger_source(workload_config: WorkloadConfig) -> PassengerSource:
     return PassengerSource(
         floors=workload_config.floors,
         duration=workload_config.duration,
-        probability=workload_config.probability,
+        passengers=workload_config.passengers,
         seed=workload_config.seed,
     )
 
@@ -69,15 +70,15 @@ def compare_strategies(
 
 def build_summary_statistics_table(workload_size: int, results: list[StrategyComparisonResult]) -> Table:
     """Build a passenger timing summary table."""
-    table = Table(title="Summary Statistics")
+    table = Table(title="Summary Statistics", box=box.SQUARE_DOUBLE_HEAD)
     table.add_column("Strategy", no_wrap=True)
     table.add_column("Passengers", justify="right", no_wrap=True)
-    table.add_column("Min Wait", justify="right", no_wrap=True)
-    table.add_column("Max Wait", justify="right", no_wrap=True)
-    table.add_column("Avg Wait", justify="right", no_wrap=True)
-    table.add_column("Min Total", justify="right", no_wrap=True)
-    table.add_column("Max Total", justify="right", no_wrap=True)
-    table.add_column("Avg Total", justify="right", no_wrap=True)
+    table.add_column("Wait Time\nMin", justify="right", no_wrap=True)
+    table.add_column("Wait Time\nMax", justify="right", no_wrap=True)
+    table.add_column("Wait Time\nAvg", justify="right", no_wrap=True)
+    table.add_column("Total Time\nMin", justify="right", no_wrap=True)
+    table.add_column("Total Time\nMax", justify="right", no_wrap=True)
+    table.add_column("Total Time\nAvg", justify="right", no_wrap=True)
 
     for comparison in results:
         metrics = comparison.result.metrics
@@ -96,7 +97,7 @@ def build_summary_statistics_table(workload_size: int, results: list[StrategyCom
 
 def build_performance_analysis_table(results: list[StrategyComparisonResult]) -> Table:
     """Build a simulation performance analysis table."""
-    table = Table(title="Performance Analysis")
+    table = Table(title="Performance Analysis", box=box.SQUARE_DOUBLE_HEAD)
     table.add_column("Strategy", no_wrap=True)
     table.add_column("Total Ticks", justify="right", no_wrap=True)
     table.add_column("Avg Passengers/Tick", justify="right", no_wrap=True)
@@ -110,7 +111,7 @@ def build_performance_analysis_table(results: list[StrategyComparisonResult]) ->
             str(performance.total_ticks),
             _format_float(performance.average_passengers_per_tick),
             str(performance.peak_queue),
-            f"{performance.efficiency_score:.2f}%",
+            _format_efficiency_score(performance.efficiency_score),
         )
     return table
 
@@ -127,3 +128,14 @@ def _format_float(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.2f}"
+
+
+def _format_efficiency_score(value: float) -> str:
+    """Format efficiency score with Rich markup for threshold-based coloring."""
+    if value < 50:
+        color = "red"
+    elif value < 80:
+        color = "yellow"
+    else:
+        color = "green"
+    return f"[{color}]{value:.2f}%[/{color}]"

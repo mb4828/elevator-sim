@@ -7,18 +7,20 @@ from elevator_sim.core.models import Passenger
 
 
 class PassengerSource:
-    """Generate and replay reproducible Bernoulli passenger arrivals."""
+    """Generate and replay reproducible random passenger workloads."""
 
-    def __init__(self, floors: int, probability: float, duration: int, seed: int | None = None) -> None:
+    def __init__(self, floors: int, passengers: int, duration: int, seed: int | None = None) -> None:
         if floors < 2:
             raise ValueError("floors must be at least 2")
-        if not 0.0 <= probability <= 1.0:
-            raise ValueError("probability must be between 0.0 and 1.0")
+        if passengers < 0:
+            raise ValueError("passengers must be non-negative")
         if duration < 0:
             raise ValueError("duration must be non-negative")
+        if passengers > 0 and duration == 0:
+            raise ValueError("duration must be positive when passengers are requested")
 
         self.floors = floors
-        self.probability = probability
+        self.passenger_count = passengers
         self.duration = duration
         self._random = random.Random(seed)
         self._passengers = self._generate_passengers()
@@ -39,14 +41,11 @@ class PassengerSource:
 
     def _generate_passengers(self) -> tuple[Passenger, ...]:
         """Generate the full passenger workload up front."""
-        passengers: list[Passenger] = []
-        next_passenger_id = 1
-        for time in range(self.duration):
-            if self._random.random() >= self.probability:
-                continue
-            passengers.append(self._create_passenger(next_passenger_id, time))
-            next_passenger_id += 1
-        return tuple(passengers)
+        request_times = sorted(self._random.randrange(self.duration) for _ in range(self.passenger_count))
+        return tuple(
+            self._create_passenger(passenger_id, request_time)
+            for passenger_id, request_time in enumerate(request_times, start=1)
+        )
 
     def _create_passenger(self, passenger_id: int, request_time: int) -> Passenger:
         """Create one passenger with distinct random origin and destination floors."""
