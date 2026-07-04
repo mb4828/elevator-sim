@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from elevator_sim.core.models import Passenger
+from elevator_sim.core.models import Passenger, SimulationSnapshot
 
 
 @dataclass(frozen=True)
@@ -19,12 +19,26 @@ class MetricsSummary:
 
 
 @dataclass(frozen=True)
+class PerformanceSummary:
+    """Aggregate simulation performance metrics."""
+
+    total_ticks: int
+    average_passengers_per_tick: float
+    peak_queue: int
+    total_riding_ticks: int
+    total_capacity_ticks: int
+    efficiency_score: float
+
+
+@dataclass(frozen=True)
 class SimulationResult:
     """Final simulation output."""
 
     ticks: int
     metrics: MetricsSummary
+    performance: PerformanceSummary
     passengers: tuple[Passenger, ...]
+    state_log: tuple[SimulationSnapshot, ...]
 
 
 def summarize_metrics(passengers: list[Passenger]) -> MetricsSummary:
@@ -41,6 +55,25 @@ def summarize_metrics(passengers: list[Passenger]) -> MetricsSummary:
         average_total_time=_average(total_times),
         minimum_total_time=min(total_times) if total_times else None,
         maximum_total_time=max(total_times) if total_times else None,
+    )
+
+
+def summarize_performance(
+    total_ticks: int,
+    total_riding_ticks: int,
+    total_capacity_ticks: int,
+    peak_queue: int,
+) -> PerformanceSummary:
+    """Build performance metrics from simulation run counters."""
+    average_passengers_per_tick = total_riding_ticks / total_ticks if total_ticks else 0.0
+    efficiency_score = (total_riding_ticks / total_capacity_ticks) * 100 if total_capacity_ticks else 0.0
+    return PerformanceSummary(
+        total_ticks=total_ticks,
+        average_passengers_per_tick=average_passengers_per_tick,
+        peak_queue=peak_queue,
+        total_riding_ticks=total_riding_ticks,
+        total_capacity_ticks=total_capacity_ticks,
+        efficiency_score=efficiency_score,
     )
 
 

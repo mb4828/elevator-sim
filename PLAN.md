@@ -345,7 +345,7 @@ Required options:
 
 - `--floors`
 - `--elevators`
-- `--max-passengers` / `--capacity`
+- `--capacity`
 
 Optional options:
 
@@ -353,7 +353,7 @@ Optional options:
 - `--start-floor`
 - `--duration`
 - `--seed`
-- `--arrival-probability`
+- `--probability`
 - `--max-ticks`
 
 No strategy is required. If no strategy is provided, the CLI reports the generated passenger count and exits.

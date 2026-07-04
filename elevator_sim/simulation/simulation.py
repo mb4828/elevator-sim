@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from elevator_sim.core.metrics import SimulationResult, summarize_metrics
+from elevator_sim.core.metrics import SimulationResult, summarize_metrics, summarize_performance
 from elevator_sim.core.models import Elevator, ElevatorServicePhase, Passenger, PassengerStatus, SimulationSnapshot
 from elevator_sim.simulation.decisions import apply_decisions
 from elevator_sim.simulation.events import apply_elevator_events
@@ -28,7 +28,11 @@ class Simulation:
         self.time = 0
         self.passengers: dict[int, Passenger] = {}
         self.stopped = False
+        self.peak_queue = 0
+        self.total_riding_ticks = 0
+        self.total_capacity_ticks = 0
         self._validate_initial_state(self.floors, self.elevators)
+        self.state_log: list[SimulationSnapshot] = [self.snapshot()]
 
     def step(self) -> SimulationSnapshot:
         """Advance the simulation by exactly one tick and return the new state."""
@@ -41,8 +45,11 @@ class Simulation:
         apply_elevator_events(self.elevators, self.passengers, self.time)
 
         self.time += 1
+        self._record_performance_tick()
         self.stopped = self._should_stop()
-        return self.snapshot()
+        snapshot = self.snapshot()
+        self.state_log.append(snapshot)
+        return snapshot
 
     def run(self, max_ticks: int = 100_000) -> SimulationResult:
         """Run until complete, guarding against defective strategies."""
@@ -62,7 +69,14 @@ class Simulation:
         return SimulationResult(
             ticks=self.time,
             metrics=summarize_metrics(list(passengers)),
+            performance=summarize_performance(
+                total_ticks=self.time,
+                total_riding_ticks=self.total_riding_ticks,
+                total_capacity_ticks=self.total_capacity_ticks,
+                peak_queue=self.peak_queue,
+            ),
             passengers=passengers,
+            state_log=tuple(self.state_log),
         )
 
     def _should_stop(self) -> bool:
@@ -76,6 +90,15 @@ class Simulation:
     def _has_stop_work(self, elevator: Elevator) -> bool:
         """Return whether an elevator still has queued or in-progress stop work."""
         return bool(elevator.target_floors or elevator.service_phase != ElevatorServicePhase.READY)
+
+    def _record_performance_tick(self) -> None:
+        """Record queue and utilization metrics for one completed tick."""
+        waiting_passengers = sum(
+            1 for passenger in self.passengers.values() if passenger.status == PassengerStatus.WAITING
+        )
+        self.peak_queue = max(self.peak_queue, waiting_passengers)
+        self.total_riding_ticks += sum(len(elevator.passengers) for elevator in self.elevators)
+        self.total_capacity_ticks += sum(elevator.capacity for elevator in self.elevators)
 
     def _validate_initial_state(self, floors: int, elevators: list[Elevator]) -> None:
         """Validate static simulation configuration before the first tick."""

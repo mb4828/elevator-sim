@@ -22,7 +22,7 @@ class CompletingStrategy(ElevatorStrategy):
 
 def test_create_passenger_source_is_reproducible() -> None:
     """Generated passenger sources are reproducible for fair strategy comparisons."""
-    workload_config = WorkloadConfig(floors=5, duration=20, seed=7, arrival_probability=0.4)
+    workload_config = WorkloadConfig(floors=5, duration=20, seed=7, probability=0.4)
     first = create_passenger_source(workload_config)
     second = create_passenger_source(workload_config)
 
@@ -31,7 +31,7 @@ def test_create_passenger_source_is_reproducible() -> None:
 
 def test_compare_strategies_runs_each_strategy_with_shared_workload() -> None:
     """Comparison helper runs each strategy factory against identical seeded passenger requests."""
-    workload_config = WorkloadConfig(floors=4, duration=3, seed=1, arrival_probability=1.0)
+    workload_config = WorkloadConfig(floors=4, duration=3, seed=1, probability=1.0)
     passenger_count = len(create_passenger_source(workload_config).passengers)
     results = compare_strategies(
         workload_config=workload_config,

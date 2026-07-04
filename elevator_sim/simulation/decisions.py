@@ -41,7 +41,7 @@ def normalize_stop_floors(stop_floors: tuple[int, ...], floors: int) -> list[int
     normalized_stop_floors: list[int] = []
     seen_floors: set[int] = set()
     for stop_floor in stop_floors:
-        if stop_floor < 1 or stop_floor > floors:
+        if stop_floor < 0 or stop_floor >= floors:
             raise ValueError(f"stop floor is outside building bounds: {stop_floor}")
         if stop_floor not in seen_floors:
             normalized_stop_floors.append(stop_floor)

@@ -1,9 +1,7 @@
 """Core domain models for the elevator simulation."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Direction(str, Enum):
@@ -32,25 +30,31 @@ class ElevatorServicePhase(str, Enum):
     PICKING_UP = "picking_up"
 
 
-class Passenger(BaseModel):
+@dataclass
+class Passenger:
     """A passenger request tracked through the simulation."""
 
-    model_config = ConfigDict(validate_assignment=True)
-
-    id: int = Field(gt=0)
-    request_time: int = Field(ge=0)
-    start_floor: int = Field(ge=1)
-    destination_floor: int = Field(ge=1)
+    id: int
+    request_time: int
+    start_floor: int
+    destination_floor: int
     status: PassengerStatus = PassengerStatus.SCHEDULED
     pickup_time: int | None = None
     dropoff_time: int | None = None
     elevator_id: int | None = None
 
-    @model_validator(mode="after")
-    def _validate_distinct_floors(self) -> "Passenger":
+    def __post_init__(self) -> None:
+        """Validate static passenger invariants."""
+        if self.id <= 0:
+            raise ValueError("passenger id must be greater than 0")
+        if self.request_time < 0:
+            raise ValueError("request_time must be greater than or equal to 0")
+        if self.start_floor < 0:
+            raise ValueError("start_floor must be greater than or equal to 0")
+        if self.destination_floor < 0:
+            raise ValueError("destination_floor must be greater than or equal to 0")
         if self.start_floor == self.destination_floor:
             raise ValueError("start and destination floors must differ")
-        return self
 
     @property
     def direction(self) -> Direction:
@@ -75,27 +79,35 @@ class Passenger(BaseModel):
 
     def validate_for_building(self, floors: int, current_time: int) -> None:
         """Validate this passenger against simulation-specific runtime constraints."""
-        if self.start_floor > floors:
+        if self.start_floor >= floors:
             raise ValueError(f"passenger {self.id} start_floor is outside building bounds")
-        if self.destination_floor > floors:
+        if self.destination_floor >= floors:
             raise ValueError(f"passenger {self.id} destination_floor is outside building bounds")
         if self.request_time != current_time:
             raise ValueError(f"passenger {self.id} was released at the wrong time")
 
 
-class Elevator(BaseModel):
+@dataclass
+class Elevator:
     """Mutable elevator state owned by the simulation engine."""
 
-    model_config = ConfigDict(validate_assignment=True)
-
-    id: int = Field(gt=0)
-    current_floor: int = Field(ge=1)
-    capacity: int = Field(gt=0)
+    id: int
+    current_floor: int
+    capacity: int
     direction: Direction = Direction.IDLE
     service_phase: ElevatorServicePhase = ElevatorServicePhase.READY
-    passengers: list[Passenger] = Field(default_factory=list)
-    assigned_passenger_ids: set[int] = Field(default_factory=set)
-    target_floors: list[int] = Field(default_factory=list)
+    passengers: list[Passenger] = field(default_factory=list)
+    assigned_passenger_ids: set[int] = field(default_factory=set)
+    target_floors: list[int] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Validate static elevator invariants."""
+        if self.id <= 0:
+            raise ValueError("elevator id must be greater than 0")
+        if self.current_floor < 0:
+            raise ValueError("current_floor must be greater than or equal to 0")
+        if self.capacity <= 0:
+            raise ValueError("capacity must be greater than 0")
 
     @property
     def available_capacity(self) -> int:
@@ -104,10 +116,10 @@ class Elevator(BaseModel):
 
     def validate_for_building(self, floors: int) -> None:
         """Validate this elevator against simulation-specific building constraints."""
-        if self.current_floor > floors:
+        if self.current_floor >= floors:
             raise ValueError(f"elevator {self.id} current_floor is outside building bounds")
         for target_floor in self.target_floors:
-            if target_floor < 1 or target_floor > floors:
+            if target_floor < 0 or target_floor >= floors:
                 raise ValueError(f"elevator {self.id} target_floor is outside building bounds")
 
 

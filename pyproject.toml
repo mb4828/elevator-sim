@@ -5,11 +5,13 @@ description = "Elevator simulation project."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pydantic==2.13.4",
+    "rich==13.9.4",
+    "rich-argparse==1.8.0",
 ]
 
 [dependency-groups]
 dev = [
+    "black==26.5.1",
     "pylint==3.3.3",
     "pytest==8.3.4",
     "pytest-cov==6.0.0",
@@ -30,3 +32,7 @@ disable = [
     "too-few-public-methods",
     "too-many-instance-attributes",
 ]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]

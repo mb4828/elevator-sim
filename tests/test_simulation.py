@@ -1,5 +1,7 @@
 """Tests for the discrete-time simulation engine."""
 
+import json
+
 import pytest
 
 from elevator_sim.core.models import (
@@ -10,6 +12,7 @@ from elevator_sim.core.models import (
     PassengerStatus,
     SimulationSnapshot,
 )
+from elevator_sim.core.state_log import write_state_log
 from elevator_sim.simulation import Simulation
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
 from elevator_sim.workload.passenger_source import PassengerSource
@@ -43,9 +46,7 @@ class DirectPassengerStrategy(ElevatorStrategy):
             return [ElevatorDecision(elevator.id)]
         assigned_ids = () if passenger.status == PassengerStatus.RIDING else (passenger.id,)
         target_floor = (
-            passenger.destination_floor
-            if passenger.status == PassengerStatus.RIDING
-            else passenger.start_floor
+            passenger.destination_floor if passenger.status == PassengerStatus.RIDING else passenger.start_floor
         )
         return [ElevatorDecision(elevator.id, stop_floors=(target_floor,), assigned_passenger_ids=assigned_ids)]
 
@@ -61,7 +62,7 @@ class BoundaryStrategy(ElevatorStrategy):
     """Test strategy that stops at the current boundary floor."""
 
     def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
-        return [ElevatorDecision(elevator_id=1, stop_floors=(2,))]
+        return [ElevatorDecision(elevator_id=1, stop_floors=(1,))]
 
 
 class StopQueueStrategy(ElevatorStrategy):
@@ -96,9 +97,7 @@ class DwellStrategy(ElevatorStrategy):
         waiting_passengers = [
             passenger for passenger in state.passengers if passenger.status == PassengerStatus.WAITING
         ]
-        riding_passengers = [
-            passenger for passenger in state.passengers if passenger.status == PassengerStatus.RIDING
-        ]
+        riding_passengers = [passenger for passenger in state.passengers if passenger.status == PassengerStatus.RIDING]
         stop_floors = tuple(
             dict.fromkeys(
                 [passenger.start_floor for passenger in waiting_passengers]
@@ -116,7 +115,7 @@ class DwellStrategy(ElevatorStrategy):
 
 def test_run_completes_single_passenger_trip() -> None:
     """Simulation releases, picks up, moves, drops off, and records metrics."""
-    passenger_source = PassengerSource(floors=5, arrival_probability=1.0, duration=1, seed=1)
+    passenger_source = PassengerSource(floors=5, probability=1.0, duration=1, seed=1)
     simulation = Simulation(
         floors=5,
         elevators=[Elevator(id=1, current_floor=1, capacity=4)],
@@ -130,18 +129,79 @@ def test_run_completes_single_passenger_trip() -> None:
     assert result.passengers[0].status == PassengerStatus.COMPLETED
 
 
+def test_run_records_performance_summary() -> None:
+    """Simulation records queue depth and utilization across completed ticks."""
+    passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=1, capacity=2)],
+        strategy=DirectPassengerStrategy(),
+        passenger_source=StaticPassengerSource((passenger,)),
+    )
+
+    result = simulation.run(max_ticks=10)
+
+    assert result.performance.total_ticks == 8
+    assert result.performance.average_passengers_per_tick == 0.375
+    assert result.performance.peak_queue == 1
+    assert result.performance.total_riding_ticks == 3
+    assert result.performance.total_capacity_ticks == 16
+    assert result.performance.efficiency_score == 18.75
+
+
+def test_run_records_complete_state_log() -> None:
+    """Simulation result includes the initial state and every completed tick."""
+    passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=1, capacity=2)],
+        strategy=DirectPassengerStrategy(),
+        passenger_source=StaticPassengerSource((passenger,)),
+    )
+
+    result = simulation.run(max_ticks=10)
+
+    assert len(result.state_log) == result.ticks + 1
+    assert result.state_log[0].time == 0
+    assert result.state_log[0].elevators[0].current_floor == 1
+    assert result.state_log[-1].complete is True
+    assert result.state_log[-1].passengers[0].status == PassengerStatus.COMPLETED
+
+
+def test_write_state_log_creates_visualization_json(tmp_path) -> None:
+    """State-log writer persists elevator positions and full system state."""
+    passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=1, capacity=2)],
+        strategy=DirectPassengerStrategy(),
+        passenger_source=StaticPassengerSource((passenger,)),
+    )
+    result = simulation.run(max_ticks=10)
+    output_path = tmp_path / "state-log.json"
+
+    write_state_log(result.state_log, output_path)
+
+    data = json.loads(output_path.read_text(encoding="utf-8"))
+    assert data[0]["time"] == 0
+    assert data[0]["elevator_positions"] == {"1": 1}
+    assert data[-1]["complete"] is True
+    assert data[-1]["elevators"][0]["service_phase"] == "ready"
+    assert data[-1]["passengers"][0]["status"] == "completed"
+
+
 def test_step_keeps_elevator_idle_at_current_boundary_stop() -> None:
     """Simulation keeps an elevator idle when its next stop is the current boundary floor."""
     simulation = Simulation(
         floors=2,
-        elevators=[Elevator(id=1, current_floor=2, capacity=1)],
+        elevators=[Elevator(id=1, current_floor=1, capacity=1)],
         strategy=BoundaryStrategy(),
-        passenger_source=PassengerSource(floors=2, arrival_probability=0.0, duration=0, seed=1),
+        passenger_source=PassengerSource(floors=2, probability=0.0, duration=0, seed=1),
     )
 
     snapshot = simulation.step()
 
-    assert snapshot.elevators[0].current_floor == 2
+    assert snapshot.elevators[0].current_floor == 1
     assert snapshot.elevators[0].direction == Direction.IDLE
 
 
@@ -151,7 +211,7 @@ def test_unknown_elevator_decision_raises_error() -> None:
         floors=3,
         elevators=[Elevator(id=1, current_floor=1, capacity=1)],
         strategy=InvalidElevatorStrategy(),
-        passenger_source=PassengerSource(floors=3, arrival_probability=1.0, duration=1, seed=1),
+        passenger_source=PassengerSource(floors=3, probability=1.0, duration=1, seed=1),
     )
 
     with pytest.raises(ValueError, match="unknown elevator ID"):
@@ -190,7 +250,7 @@ def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
     waiting_passenger = Passenger(id=2, request_time=0, start_floor=2, destination_floor=3)
     elevator = Elevator(id=1, current_floor=1, capacity=2, passengers=[onboard_passenger])
     simulation = Simulation(
-        floors=3,
+        floors=4,
         elevators=[elevator],
         strategy=DwellStrategy(),
         passenger_source=StaticPassengerSource((waiting_passenger,)),
@@ -251,7 +311,7 @@ def test_passenger_who_cannot_fit_is_unassigned_and_stays_waiting() -> None:
     waiting_passenger = Passenger(id=2, request_time=0, start_floor=1, destination_floor=2)
     elevator = Elevator(id=1, current_floor=1, capacity=1, passengers=[onboard_passenger])
     simulation = Simulation(
-        floors=3,
+        floors=4,
         elevators=[elevator],
         strategy=StopQueueStrategy(stop_floors=(1,), assigned_passenger_ids=(2,)),
         passenger_source=StaticPassengerSource((waiting_passenger,)),
@@ -272,7 +332,7 @@ def test_invalid_stop_floor_raises_error() -> None:
     simulation = Simulation(
         floors=3,
         elevators=[Elevator(id=1, current_floor=1, capacity=1)],
-        strategy=StopQueueStrategy(stop_floors=(4,)),
+        strategy=StopQueueStrategy(stop_floors=(3,)),
         passenger_source=StaticPassengerSource(()),
     )
 

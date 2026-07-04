@@ -9,16 +9,16 @@ from elevator_sim.core.models import Passenger
 class PassengerSource:
     """Generate and replay reproducible Bernoulli passenger arrivals."""
 
-    def __init__(self, floors: int, arrival_probability: float, duration: int, seed: int | None = None) -> None:
+    def __init__(self, floors: int, probability: float, duration: int, seed: int | None = None) -> None:
         if floors < 2:
             raise ValueError("floors must be at least 2")
-        if not 0.0 <= arrival_probability <= 1.0:
-            raise ValueError("arrival_probability must be between 0.0 and 1.0")
+        if not 0.0 <= probability <= 1.0:
+            raise ValueError("probability must be between 0.0 and 1.0")
         if duration < 0:
             raise ValueError("duration must be non-negative")
 
         self.floors = floors
-        self.arrival_probability = arrival_probability
+        self.probability = probability
         self.duration = duration
         self._random = random.Random(seed)
         self._passengers = self._generate_passengers()
@@ -42,7 +42,7 @@ class PassengerSource:
         passengers: list[Passenger] = []
         next_passenger_id = 1
         for time in range(self.duration):
-            if self._random.random() >= self.arrival_probability:
+            if self._random.random() >= self.probability:
                 continue
             passengers.append(self._create_passenger(next_passenger_id, time))
             next_passenger_id += 1
@@ -50,10 +50,10 @@ class PassengerSource:
 
     def _create_passenger(self, passenger_id: int, request_time: int) -> Passenger:
         """Create one passenger with distinct random origin and destination floors."""
-        start_floor = self._random.randint(1, self.floors)
-        destination_floor = self._random.randint(1, self.floors)
+        start_floor = self._random.randint(0, self.floors - 1)
+        destination_floor = self._random.randint(0, self.floors - 1)
         while destination_floor == start_floor:
-            destination_floor = self._random.randint(1, self.floors)
+            destination_floor = self._random.randint(0, self.floors - 1)
 
         return Passenger(
             id=passenger_id,
