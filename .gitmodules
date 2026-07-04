@@ -1,0 +1,3 @@
+[submodule ".agents"]
+	path = .agents
+	url = git@github.com:mb4828/ai-kit.git
