@@ -2,6 +2,8 @@
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
+Estimated project time: <!-- project-time:start -->2h 50m<!-- project-time:end -->
+
 &copy; 2026 Matt Brauner
 
 ## Setup
