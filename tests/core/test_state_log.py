@@ -34,7 +34,7 @@ def test_write_state_log_creates_visualization_json(tmp_path) -> None:
     ]
     assert data["frames"][0]["time"] == 0
     assert data["frames"][0]["elevators"] == [
-        {"id": 1, "floor": 1, "direction": "idle", "phase": "ready", "passenger_count": 0}
+        {"id": 1, "floor": 1, "direction": "idle", "phase": "moving", "passenger_count": 0}
     ]
     assert data["frames"][1]["passengers"] == [{"id": 1, "status": "waiting", "elevator_id": None}]
     assert data["frames"][2]["passengers"] == [{"id": 1, "status": "riding", "elevator_id": 1}]
@@ -62,7 +62,7 @@ def _snapshot(
                 id=1,
                 current_floor=1,
                 direction=Direction.IDLE,
-                service_phase=ElevatorServicePhase.READY,
+                service_phase=ElevatorServicePhase.MOVING,
                 passenger_count=passenger_count,
                 capacity=2,
                 target_floors=(),

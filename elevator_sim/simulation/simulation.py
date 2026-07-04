@@ -89,7 +89,7 @@ class Simulation:
 
     def _has_stop_work(self, elevator: Elevator) -> bool:
         """Return whether an elevator still has queued or in-progress stop work."""
-        return bool(elevator.target_floors or elevator.service_phase != ElevatorServicePhase.READY)
+        return bool(elevator.target_floors or elevator.service_phase != ElevatorServicePhase.MOVING)
 
     def _record_performance_tick(self) -> None:
         """Record queue and utilization metrics for one completed tick."""

@@ -25,7 +25,7 @@ def _elevator(  # pylint: disable=too-many-arguments,too-many-positional-argumen
         id=elevator_id,
         current_floor=current_floor,
         direction=direction,
-        service_phase=ElevatorServicePhase.READY,
+        service_phase=ElevatorServicePhase.MOVING,
         passenger_count=passenger_count,
         capacity=capacity,
         target_floors=target_floors,
@@ -62,7 +62,7 @@ def _snapshot(
 
 
 def test_plan_assigns_passenger_to_nearest_elevator_moving_toward_start_floor() -> None:
-    """Nearest-car assigns to the closest elevator moving toward the passenger."""
+    """Nearest-car assigns to the closest elevator moving toward the passenger's requested direction."""
     state = _snapshot(
         elevators=(
             _elevator(1, current_floor=1, direction=Direction.UP),
@@ -73,9 +73,26 @@ def test_plan_assigns_passenger_to_nearest_elevator_moving_toward_start_floor() 
 
     decisions = NearestCarStrategy().plan(state)
 
+    assert decisions[0].assigned_passenger_ids == (1,)
+    assert decisions[0].stop_floors == (5, 8)
+    assert decisions[1].assigned_passenger_ids == ()
+
+
+def test_plan_prefers_idle_car_over_closer_wrong_direction_moving_car() -> None:
+    """Nearest-car does not stop a moving car for an opposite-direction pickup."""
+    state = _snapshot(
+        elevators=(
+            _elevator(1, current_floor=4, direction=Direction.UP),
+            _elevator(2, current_floor=0, direction=Direction.IDLE),
+        ),
+        passengers=(_passenger(1, start_floor=5, destination_floor=1),),
+    )
+
+    decisions = NearestCarStrategy().plan(state)
+
     assert decisions[0].assigned_passenger_ids == ()
     assert decisions[1].assigned_passenger_ids == (1,)
-    assert decisions[1].stop_floors == (5, 8)
+    assert decisions[1].stop_floors == (5, 1)
 
 
 def test_plan_uses_idle_elevator_when_moving_elevators_are_not_traveling_toward_passenger() -> None:
@@ -134,7 +151,7 @@ def test_plan_assigns_to_nearest_elevator_when_all_cars_are_moving_away() -> Non
 
 
 def test_plan_orders_stops_for_existing_riders_and_new_pickups() -> None:
-    """Nearest-car keeps moving cars sweeping in their current direction before reversing."""
+    """Nearest-car waits to pick up opposite-direction passengers until after reversing."""
     state = _snapshot(
         elevators=(_elevator(1, current_floor=3, direction=Direction.UP),),
         passengers=(
@@ -146,7 +163,7 @@ def test_plan_orders_stops_for_existing_riders_and_new_pickups() -> None:
     decisions = NearestCarStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (2,)
-    assert decisions[0].stop_floors == (5, 7, 1)
+    assert decisions[0].stop_floors == (7, 5, 1)
 
 
 def test_plan_places_new_passenger_destinations_after_pickup_floors() -> None:

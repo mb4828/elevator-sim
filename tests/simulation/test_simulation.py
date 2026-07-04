@@ -138,12 +138,12 @@ def test_run_records_performance_summary() -> None:
 
     result = simulation.run(max_ticks=10)
 
-    assert result.performance.total_ticks == 8
-    assert result.performance.average_passengers_per_tick == 0.375
+    assert result.performance.total_ticks == 6
+    assert result.performance.average_passengers_per_tick == 0.5
     assert result.performance.peak_queue == 1
     assert result.performance.total_riding_ticks == 3
-    assert result.performance.total_capacity_ticks == 16
-    assert result.performance.efficiency_score == 18.75
+    assert result.performance.total_capacity_ticks == 12
+    assert result.performance.efficiency_score == 25.0
 
 
 def test_run_records_complete_state_log() -> None:
@@ -206,9 +206,9 @@ def test_elevator_skips_intermediate_floor_without_stopping() -> None:
     second_snapshot = simulation.step()
 
     assert first_snapshot.elevators[0].current_floor == 2
-    assert first_snapshot.elevators[0].service_phase == ElevatorServicePhase.READY
+    assert first_snapshot.elevators[0].service_phase == ElevatorServicePhase.MOVING
     assert second_snapshot.elevators[0].current_floor == 3
-    assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.READY
+    assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.MOVING
 
 
 def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
@@ -250,6 +250,35 @@ def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
     assert moved_again.elevators[0].current_floor == 3
 
 
+def test_dropoff_stop_skips_pickup_when_no_passengers_are_waiting() -> None:
+    """Elevator returns to moving after drop-off when no assigned passenger can board."""
+    onboard_passenger = Passenger(
+        id=1,
+        request_time=0,
+        start_floor=1,
+        destination_floor=2,
+        status=PassengerStatus.RIDING,
+        pickup_time=0,
+        elevator_id=1,
+    )
+    elevator = Elevator(id=1, current_floor=1, capacity=1, passengers=[onboard_passenger])
+    simulation = Simulation(
+        floors=3,
+        elevators=[elevator],
+        strategy=StopQueueStrategy(stop_floors=(2,)),
+        passenger_source=StaticPassengerSource(()),
+    )
+
+    arrived = simulation.step()
+    stopped = simulation.step()
+    dropped_off = simulation.step()
+
+    assert arrived.elevators[0].service_phase == ElevatorServicePhase.STOPPING
+    assert stopped.elevators[0].service_phase == ElevatorServicePhase.DROPPING_OFF
+    assert dropped_off.elevators[0].passenger_count == 0
+    assert dropped_off.elevators[0].service_phase == ElevatorServicePhase.MOVING
+
+
 def test_current_floor_stop_waits_before_pickup() -> None:
     """Stop at the current floor starts service timing instead of picking up immediately."""
     passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
@@ -263,13 +292,13 @@ def test_current_floor_stop_waits_before_pickup() -> None:
     first_snapshot = simulation.step()
     second_snapshot = simulation.step()
     third_snapshot = simulation.step()
-    fourth_snapshot = simulation.step()
 
     assert first_snapshot.passengers[0].status == PassengerStatus.WAITING
     assert first_snapshot.elevators[0].service_phase == ElevatorServicePhase.STOPPING
     assert second_snapshot.passengers[0].status == PassengerStatus.WAITING
-    assert third_snapshot.passengers[0].status == PassengerStatus.WAITING
-    assert fourth_snapshot.passengers[0].status == PassengerStatus.RIDING
+    assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.PICKING_UP
+    assert third_snapshot.passengers[0].status == PassengerStatus.RIDING
+    assert third_snapshot.elevators[0].service_phase == ElevatorServicePhase.MOVING
 
 
 def test_passenger_who_cannot_fit_is_unassigned_and_stays_waiting() -> None:
@@ -292,7 +321,6 @@ def test_passenger_who_cannot_fit_is_unassigned_and_stays_waiting() -> None:
         passenger_source=StaticPassengerSource((waiting_passenger,)),
     )
 
-    simulation.step()
     simulation.step()
     simulation.step()
     snapshot = simulation.step()

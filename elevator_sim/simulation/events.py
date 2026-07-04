@@ -13,16 +13,31 @@ def apply_elevator_event(elevator: Elevator, passengers: dict[int, Passenger], t
     """Apply one movement or service event to an elevator."""
     if elevator.service_phase == ElevatorServicePhase.STOPPING:
         elevator.direction = Direction.IDLE
-        elevator.service_phase = ElevatorServicePhase.DROPPING_OFF
+        advance_service_phase(elevator, passengers)
     elif elevator.service_phase == ElevatorServicePhase.DROPPING_OFF:
         drop_off_passengers(elevator, time)
-        elevator.service_phase = ElevatorServicePhase.PICKING_UP
+        if has_pickup_passengers(elevator, passengers):
+            elevator.service_phase = ElevatorServicePhase.PICKING_UP
+        else:
+            remove_current_stop(elevator)
+            elevator.service_phase = ElevatorServicePhase.MOVING
     elif elevator.service_phase == ElevatorServicePhase.PICKING_UP:
         pick_up_passengers(elevator, passengers, time)
         remove_current_stop(elevator)
-        elevator.service_phase = ElevatorServicePhase.READY
+        elevator.service_phase = ElevatorServicePhase.MOVING
     else:
         move_toward_next_stop(elevator)
+
+
+def advance_service_phase(elevator: Elevator, passengers: dict[int, Passenger]) -> None:
+    """Move from stopping into the next service phase that has work."""
+    if has_dropoff_passengers(elevator):
+        elevator.service_phase = ElevatorServicePhase.DROPPING_OFF
+    elif has_pickup_passengers(elevator, passengers):
+        elevator.service_phase = ElevatorServicePhase.PICKING_UP
+    else:
+        remove_current_stop(elevator)
+        elevator.service_phase = ElevatorServicePhase.MOVING
 
 
 def move_toward_next_stop(elevator: Elevator) -> None:
@@ -49,6 +64,20 @@ def start_stop_if_arrived(elevator: Elevator, next_stop: int) -> None:
     """Prepare to consume a stop tick on the next simulation tick if the elevator arrived."""
     if elevator.current_floor == next_stop:
         elevator.service_phase = ElevatorServicePhase.STOPPING
+
+
+def has_dropoff_passengers(elevator: Elevator) -> bool:
+    """Return whether onboard passengers need to exit at the current floor."""
+    return any(passenger.destination_floor == elevator.current_floor for passenger in elevator.passengers)
+
+
+def has_pickup_passengers(elevator: Elevator, passengers: dict[int, Passenger]) -> bool:
+    """Return whether assigned waiting passengers are available at the current floor."""
+    return any(
+        passenger.status == PassengerStatus.WAITING and passenger.start_floor == elevator.current_floor
+        for passenger_id in elevator.assigned_passenger_ids
+        if (passenger := passengers.get(passenger_id)) is not None
+    )
 
 
 def drop_off_passengers(elevator: Elevator, time: int) -> None:
