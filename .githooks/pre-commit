@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Keep the README project-time estimate current before every commit. If README
+# already has unstaged edits, stop instead of accidentally staging unrelated
+# README changes along with the generated timestamp update.
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! git diff --quiet -- README.md; then
+  echo "README.md has unstaged changes. Stage or stash them before committing." >&2
+  exit 1
+fi
+
+./scripts/update_project_time.sh
+git add README.md

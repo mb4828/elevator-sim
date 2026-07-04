@@ -2,7 +2,7 @@
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
-Estimated project time: <!-- project-time:start -->2h 50m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->2h 58m<!-- project-time:end -->
 
 &copy; 2026 Matt Brauner
 
@@ -10,6 +10,7 @@ Estimated project time: <!-- project-time:start -->2h 50m<!-- project-time:end -
 
 ```bash
 uv sync
+git config core.hooksPath .githooks
 ```
 
 ## Run Tests
