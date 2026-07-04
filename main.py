@@ -1,7 +1,5 @@
 """Command-line tools for running and comparing strategies."""
 
-from __future__ import annotations
-
 import argparse
 import importlib
 import logging

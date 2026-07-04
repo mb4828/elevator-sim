@@ -1,7 +1,5 @@
 """Base strategy contract for elevator scheduling algorithms."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 

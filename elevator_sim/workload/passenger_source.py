@@ -1,7 +1,5 @@
 """Seeded passenger workload generation."""
 
-from __future__ import annotations
-
 from collections import defaultdict
 import random
 

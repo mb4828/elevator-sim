@@ -1,7 +1,5 @@
 """Immutable simulation snapshot builders."""
 
-from __future__ import annotations
-
 from elevator_sim.core.models import Elevator, ElevatorSnapshot, Passenger, PassengerSnapshot, SimulationSnapshot
 
 

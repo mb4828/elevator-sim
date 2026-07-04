@@ -1,7 +1,5 @@
 """Discrete-time elevator simulation engine."""
 
-from __future__ import annotations
-
 from copy import deepcopy
 
 from elevator_sim.core.metrics import SimulationResult, summarize_metrics

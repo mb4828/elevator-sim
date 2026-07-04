@@ -1,7 +1,5 @@
 """Passenger lifecycle event helpers."""
 
-from __future__ import annotations
-
 from elevator_sim.core.models import Direction, Elevator, Passenger, PassengerStatus
 
 

@@ -1,7 +1,5 @@
 """Simulation result and metrics helpers."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from elevator_sim.core.models import Passenger

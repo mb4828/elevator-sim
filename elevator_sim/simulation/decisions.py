@@ -1,7 +1,5 @@
 """Strategy decision application helpers."""
 
-from __future__ import annotations
-
 from elevator_sim.core.models import Elevator, Passenger, PassengerStatus
 from elevator_sim.simulation.events import apply_direction
 from elevator_sim.strategies.base import ElevatorDecision
