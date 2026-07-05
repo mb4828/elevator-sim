@@ -4,8 +4,8 @@ Discrete-time elevator simulation harness for building and testing scheduling st
 
 ![screenshot.png](screenshot.png)
 
-See [`frontend/`](frontend/) for the React app used to visualize the JSON output produced by the Python simulation
-script.
+**See [`frontend/`](frontend/) for the React app used to visualize the JSON output produced by the Python simulation
+script.**
 
 ### Assumptions / Simplifiactions / Tradeoffs
 
