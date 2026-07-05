@@ -17,7 +17,7 @@ script.
 - Allow for testing of different elevator configurations, number of elevators, capacity, etc. simultaneously
 - Allow for testing of multiple passenger input files simultaneously
 
-Estimated project time: <!-- project-time:start -->10h 50m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->10h 30m<!-- project-time:end -->
 
 &copy; Copyright 2026 Matt Brauner
 
