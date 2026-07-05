@@ -22,8 +22,8 @@ function sampleOutputFile(): OutputFile {
     floors: 4,
     elevators: [{ id: 1, capacity: 4 }],
     passengers: [
-      { id: 1, request_time: 0, start_floor: 0, destination_floor: 3 },
-      { id: 2, request_time: 3, start_floor: 1, destination_floor: 0 },
+      { id: 1, full_id: 'passenger1', request_time: 0, start_floor: 0, destination_floor: 3 },
+      { id: 2, full_id: 'passenger2', request_time: 3, start_floor: 1, destination_floor: 0 },
     ],
     frames: [
       { time: 0, complete: false, elevators: [], passengers: [{ id: 1, status: 'waiting', elevator_id: null }] },
@@ -53,7 +53,7 @@ describe('ProgressChart', () => {
     expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
     expect(lastBarChartProps?.dataset).toHaveLength(1);
     expect(lastBarChartProps?.dataset?.[0]).toMatchObject({
-      label: '#1',
+      label: 'passenger1',
       offset: 0,
       waiting: 0,
       riding: 2,
@@ -66,6 +66,6 @@ describe('ProgressChart', () => {
     render(<ProgressChart sim={sim} tick={4} />);
 
     expect(lastBarChartProps?.dataset).toHaveLength(2);
-    expect(lastBarChartProps?.dataset?.[1]).toMatchObject({ label: '#2', offset: 3 });
+    expect(lastBarChartProps?.dataset?.[1]).toMatchObject({ label: 'passenger2', offset: 3 });
   });
 });

@@ -17,7 +17,8 @@ def test_file_source_loads_passengers_from_csv(tmp_path: Path) -> None:
 
     source = FileSource(input_file)
 
-    assert [passenger.id for passenger in source.passengers] == [1, 2, 3]
+    assert [passenger.id for passenger in source.passengers] == [0, 1, 2]
+    assert [passenger.full_id for passenger in source.passengers] == ["passenger1", "passenger2", "passenger3"]
     passenger_routes = [
         (passenger.request_time, passenger.start_floor, passenger.destination_floor) for passenger in source.passengers
     ]
@@ -26,8 +27,8 @@ def test_file_source_loads_passengers_from_csv(tmp_path: Path) -> None:
         (0, 1, 37),
         (10, 20, 1),
     ]
-    assert [passenger.id for passenger in source.passengers_at(0)] == [1, 2]
-    assert [passenger.id for passenger in source.passengers_at(10)] == [3]
+    assert [passenger.id for passenger in source.passengers_at(0)] == [0, 1]
+    assert [passenger.id for passenger in source.passengers_at(10)] == [2]
     assert source.is_exhausted(11)
 
 
@@ -47,7 +48,8 @@ def test_file_source_accepts_plain_integer_ids(tmp_path: Path) -> None:
 
     source = FileSource(input_file)
 
-    assert [passenger.id for passenger in source.passengers] == [7]
+    assert [passenger.id for passenger in source.passengers] == [0]
+    assert [passenger.full_id for passenger in source.passengers] == ["7"]
 
 
 def test_file_source_rejects_empty_file(tmp_path: Path) -> None:
@@ -79,10 +81,12 @@ def test_file_source_rejects_non_integer_fields(tmp_path: Path) -> None:
         FileSource(input_file)
 
 
-def test_file_source_rejects_id_without_digits(tmp_path: Path) -> None:
-    """File source rejects passenger labels that cannot be converted to integer IDs."""
+def test_file_source_accepts_id_without_digits(tmp_path: Path) -> None:
+    """File source accepts arbitrary non-empty passenger display IDs."""
     input_file = tmp_path / "workload.csv"
     input_file.write_text("time,id,source,dest\n0,passenger,1,2\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="id"):
-        FileSource(input_file)
+    source = FileSource(input_file)
+
+    assert source.passengers[0].id == 0
+    assert source.passengers[0].full_id == "passenger"

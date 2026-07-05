@@ -76,6 +76,7 @@ def _passenger_metadata_to_dict(passenger: PassengerSnapshot) -> dict[str, Any]:
     """Convert static passenger metadata into primitive JSON values."""
     return {
         "id": passenger.id,
+        "full_id": passenger.full_id,
         "request_time": passenger.request_time,
         "start_floor": passenger.start_floor,
         "destination_floor": passenger.destination_floor,

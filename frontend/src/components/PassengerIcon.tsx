@@ -43,7 +43,7 @@ export function passengerTooltip(
     return `#${passengerId}`;
   }
   const elevatorLabel = assignedElevatorId != null ? assignedElevatorId : '-';
-  return `#${passenger.id} to ${passenger.destination_floor} [${elevatorLabel}]`;
+  return `${passenger.full_id} [${elevatorLabel}]`;
 }
 
 // Direction is also encoded via the destination floor number (not just color) so it reads for

@@ -16,7 +16,7 @@ function makeElevator(overrides: Partial<FrameElevator> = {}): FrameElevator {
 }
 
 function makePassenger(id: number, start: number, dest: number): PassengerDefinition {
-  return { id, request_time: 0, start_floor: start, destination_floor: dest };
+  return { id, full_id: `passenger${id}`, request_time: 0, start_floor: start, destination_floor: dest };
 }
 
 function renderCar(elevator: FrameElevator, passengers: PassengerDefinition[] = []) {
@@ -55,14 +55,14 @@ describe('ElevatorCar', () => {
     expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 
-  it('labels riding passengers with their destinations', () => {
+  it('labels riding passengers with their full IDs', () => {
     renderCar(makeElevator({ phase: 'loading', passenger_count: 2 }), [
       makePassenger(1, 0, 5),
       makePassenger(2, 6, 1),
     ]);
 
-    expect(screen.getByLabelText('#1 to 5 [-]')).toBeInTheDocument();
-    expect(screen.getByLabelText('#2 to 1 [-]')).toBeInTheDocument();
+    expect(screen.getByLabelText('passenger1 [-]')).toBeInTheDocument();
+    expect(screen.getByLabelText('passenger2 [-]')).toBeInTheDocument();
     expect(screen.getByText('loading')).toBeInTheDocument();
   });
 });

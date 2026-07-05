@@ -12,7 +12,7 @@ function validOutputFile(): OutputFile {
     version: 1,
     floors: 2,
     elevators: [{ id: 1, capacity: 2 }],
-    passengers: [{ id: 1, request_time: 0, start_floor: 0, destination_floor: 1 }],
+    passengers: [{ id: 1, full_id: 'passenger1', request_time: 0, start_floor: 0, destination_floor: 1 }],
     frames: [
       {
         time: 0,
@@ -63,7 +63,9 @@ describe('App', () => {
 
     loadFile('{"floors": 4}');
 
-    expect(await screen.findByText('Expected top-level frames and passengers arrays.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Expected a simulation file with valid passengers and frames arrays.'),
+    ).toBeInTheDocument();
   });
 
   it('keeps showing the current simulation and surfaces the error when a later load fails', async () => {

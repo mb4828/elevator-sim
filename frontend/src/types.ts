@@ -4,6 +4,7 @@ export type PassengerStatus = "waiting" | "riding";
 
 export interface PassengerDefinition {
   id: number;
+  full_id: string;
   request_time: number;
   start_floor: number;
   destination_floor: number;
@@ -46,6 +47,7 @@ export interface OutputFile {
 
 export interface Journey {
   id: number;
+  fullId: string;
   requestTime: number;
   boardTime: number | null;
   completeTime: number | null;

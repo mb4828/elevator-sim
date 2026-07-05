@@ -26,7 +26,7 @@ _Additionally:_
 - Allow for simultaneous testing of multiple passenger input files
 - Continue to refine the cost function for the minimum_cost strategy
 
-Estimated project time: <!-- project-time:start -->10h 30m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->10h 56m<!-- project-time:end -->
 
 &copy; Copyright 2026 Matt Brauner
 
@@ -58,7 +58,8 @@ uv run python main.py \
   --strategy nearest_car_same_direction
 ```
 The simulator reads passengers from a CSV file with this exact header:
-`time,id,source,dest`. Passenger IDs may be positive integers or labels ending in digits, such as `passenger1`.
+`time,id,source,dest`. The simulation assigns each passenger a zero-based numeric ID for internal scheduling and writes
+the original CSV `id` value as `full_id` in the output passenger metadata for display.
 
 Completed strategy runs also write JSON logs to the current directory by default. Each log stores
 static elevator and passenger metadata once, plus per-tick animation frames. Use `--output-dir` to choose a different

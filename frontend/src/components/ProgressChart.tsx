@@ -19,7 +19,7 @@ export default function ProgressChart({ sim, tick }: Props) {
 
     return {
       complete: journey.completeTime !== null && tick >= journey.completeTime ? 2 : 0,
-      label: `#${journey.id}`,
+      label: journey.fullId,
       offset: journey.requestTime,
       riding: journey.boardTime !== null && tick >= journey.boardTime ? Math.max(0, rideEnd - journey.boardTime) : 0,
       waiting: tick >= journey.requestTime ? Math.max(0, waitEnd - journey.requestTime) : 0,

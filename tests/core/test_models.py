@@ -12,8 +12,8 @@ def test_passenger_direction_for_up_and_down_trips() -> None:
 
 
 def test_models_accept_floor_zero() -> None:
-    """Passenger and elevator models accept zero-based floor identifiers."""
-    passenger = Passenger(id=1, request_time=0, start_floor=0, destination_floor=1)
+    """Passenger and elevator models accept zero-based identifiers."""
+    passenger = Passenger(id=0, request_time=0, start_floor=0, destination_floor=1)
     elevator = Elevator(id=1, current_floor=0, capacity=2, target_floors=[0, 1])
 
     passenger.validate_for_building(floors=2, current_time=0)

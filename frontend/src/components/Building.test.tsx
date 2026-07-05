@@ -7,7 +7,7 @@ function sampleSim(): LoadedSimulation {
   return {
     floors: 8,
     elevators: [{ id: 1, capacity: 4 }],
-    passengers: [{ id: 1, request_time: 0, start_floor: 2, destination_floor: 5 }],
+    passengers: [{ id: 1, full_id: 'passenger1', request_time: 0, start_floor: 2, destination_floor: 5 }],
     frames: [],
     journeys: {},
     peakQueueByTick: [],
@@ -45,10 +45,10 @@ describe('Building', () => {
     }
   });
 
-  it("shows a waiting passenger's destination in its accessible label", () => {
+  it("shows a waiting passenger's full ID in its accessible label", () => {
     render(<Building frame={frameWithWaitingPassenger()} sim={sampleSim()} />);
 
-    expect(screen.getByLabelText('#1 to 5 [-]')).toBeInTheDocument();
+    expect(screen.getByLabelText('passenger1 [-]')).toBeInTheDocument();
   });
 
   it('renders riding passengers inside their elevator and skips unknown IDs', () => {
@@ -64,7 +64,7 @@ describe('Building', () => {
 
     render(<Building frame={frame} sim={sampleSim()} />);
 
-    expect(screen.getByLabelText('#1 to 5 [1]')).toBeInTheDocument();
+    expect(screen.getByLabelText('passenger1 [1]')).toBeInTheDocument();
     expect(screen.queryByLabelText(/^#99/)).not.toBeInTheDocument();
   });
 
@@ -77,10 +77,10 @@ describe('Building', () => {
       vi.useRealTimers();
     });
 
-    it("keeps the destination label while a waiting passenger's icon exits, instead of dropping it", () => {
+    it("keeps the full ID label while a waiting passenger's icon exits, instead of dropping it", () => {
       const sim = sampleSim();
       const { rerender } = render(<Building frame={frameWithWaitingPassenger()} sim={sim} />);
-      expect(screen.getByLabelText('#1 to 5 [-]')).toBeInTheDocument();
+      expect(screen.getByLabelText('passenger1 [-]')).toBeInTheDocument();
 
       // Simulate the "back to start" control jumping straight to a frame where
       // nobody is waiting yet, rather than stepping through incrementally.
@@ -90,7 +90,7 @@ describe('Building', () => {
 
       // Mid exit-animation, the icon must still resolve full passenger data
       // instead of falling back to a bare "#1" label.
-      expect(screen.getByLabelText('#1 to 5 [-]')).toBeInTheDocument();
+      expect(screen.getByLabelText('passenger1 [-]')).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(200);

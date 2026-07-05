@@ -44,6 +44,7 @@ def build_passenger(  # pylint: disable=too-many-arguments,too-many-positional-a
     """Build a passenger snapshot for strategy tests."""
     return PassengerSnapshot(
         id=passenger_id,
+        full_id=str(passenger_id),
         request_time=request_time,
         start_floor=start_floor,
         destination_floor=destination_floor,

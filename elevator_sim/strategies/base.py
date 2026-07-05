@@ -113,13 +113,15 @@ class _StopPlanner:
         if pickups_here:
             return _pickup_stops(self.current_floor, pickups_here, direction, self.rider_stops)
         if self.current_floor in self.rider_stops:
-            return (self.current_floor,)
+            return self._queue_from_current_stop(
+                self._sweep_queue(direction) or self._reverse_queue(_opposite_direction(direction))
+            )
         return self._sweep_queue(direction) or self._reverse_queue(_opposite_direction(direction))
 
     def idle_queue(self) -> tuple[int, ...]:
         """Return the next stop when the elevator has no current sweep direction."""
         if self.current_floor in self.rider_stops:
-            return (self.current_floor,)
+            return self._idle_queue_from_current_stop()
         nearest_rider_stop = _nearest_floor(self.current_floor, self.rider_stops)
         if nearest_rider_stop is not None:
             return (nearest_rider_stop,)
@@ -181,6 +183,25 @@ class _StopPlanner:
     def _nearest_pickup(self) -> PassengerSnapshot | None:
         """Return the closest pickup in any travel direction."""
         return _nearest_passenger(self.current_floor, list(self.pickups))
+
+    def _idle_queue_from_current_stop(self) -> tuple[int, ...]:
+        """Return the current rider stop plus the next useful stop after it."""
+        remaining_rider_stops = tuple(floor for floor in self.rider_stops if floor != self.current_floor)
+        nearest_rider_stop = _nearest_floor(self.current_floor, remaining_rider_stops)
+        if nearest_rider_stop is not None:
+            return (self.current_floor, nearest_rider_stop)
+        pickups_here = self._pickups_at_current_floor()
+        if pickups_here:
+            return _pickup_stops(self.current_floor, pickups_here, _passenger_direction(pickups_here[0]))
+        return self._queue_from_current_stop(_stops_for_pickup(self._nearest_pickup()))
+
+    def _queue_from_current_stop(self, next_stops: tuple[int, ...]) -> tuple[int, ...]:
+        """Prefix the current service stop without duplicating it."""
+        if not next_stops:
+            return (self.current_floor,)
+        if next_stops[0] == self.current_floor:
+            return next_stops
+        return (self.current_floor, *next_stops)
 
 
 def _pickup_stops(

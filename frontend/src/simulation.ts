@@ -2,7 +2,7 @@ import type { JourneyMap, LoadedSimulation, OutputFile, Stats } from "./types";
 
 export function parseSimulation(value: unknown): LoadedSimulation {
   if (!isSimulationFile(value)) {
-    throw new Error("Expected top-level frames and passengers arrays.");
+    throw new Error("Expected a simulation file with valid passengers and frames arrays.");
   }
 
   return {
@@ -18,6 +18,7 @@ export function buildJourneys(sim: OutputFile): JourneyMap {
       passenger.id,
       {
         id: passenger.id,
+        fullId: passenger.full_id,
         requestTime: passenger.request_time,
         boardTime: null,
         completeTime: null,
@@ -121,6 +122,21 @@ function isSimulationFile(value: unknown): value is OutputFile {
     typeof candidate.floors === "number" &&
     Array.isArray(candidate.elevators) &&
     Array.isArray(candidate.passengers) &&
+    candidate.passengers.every(isPassengerDefinition) &&
     Array.isArray(candidate.frames)
+  );
+}
+
+function isPassengerDefinition(value: unknown): value is OutputFile["passengers"][number] {
+  if (!value || typeof value !== "object") return false;
+  const passenger = value as Partial<OutputFile["passengers"][number]>;
+
+  return (
+    typeof passenger.id === "number" &&
+    typeof passenger.full_id === "string" &&
+    passenger.full_id.length > 0 &&
+    typeof passenger.request_time === "number" &&
+    typeof passenger.start_floor === "number" &&
+    typeof passenger.destination_floor === "number"
   );
 }

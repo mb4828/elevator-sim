@@ -29,7 +29,9 @@ def test_write_state_log_creates_visualization_json(tmp_path) -> None:
     assert data["version"] == 1
     assert data["floors"] == 3
     assert data["elevators"] == [{"id": 1, "capacity": 2}]
-    assert data["passengers"] == [{"id": 1, "request_time": 0, "start_floor": 1, "destination_floor": 2}]
+    assert data["passengers"] == [
+        {"id": 1, "full_id": "passenger1", "request_time": 0, "start_floor": 1, "destination_floor": 2}
+    ]
     assert data["frames"][0]["time"] == 0
     assert data["frames"][0]["elevators"] == [
         {"id": 1, "floor": 1, "direction": "idle", "phase": "moving", "passenger_count": 0, "target_floor": None}
@@ -81,6 +83,7 @@ def _snapshot(
         passengers=(
             PassengerSnapshot(
                 id=1,
+                full_id="passenger1",
                 request_time=0,
                 start_floor=1,
                 destination_floor=2,

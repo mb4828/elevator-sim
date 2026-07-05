@@ -1,7 +1,6 @@
 """CSV-backed passenger workload source."""
 
 import csv
-import re
 from pathlib import Path
 
 from elevator_sim.core.models import Passenger
@@ -23,7 +22,10 @@ class FileSource(PassengerSource):
         with input_file.open(newline="", encoding="utf-8") as file_obj:
             reader = csv.DictReader(file_obj)
             self._validate_header(reader.fieldnames, input_file)
-            return tuple(self._passenger_from_row(row, row_number) for row_number, row in enumerate(reader, start=2))
+            return tuple(
+                self._passenger_from_row(row, row_number=passenger_id + 2, passenger_id=passenger_id)
+                for passenger_id, row in enumerate(reader)
+            )
 
     def _validate_header(self, fieldnames: list[str] | None, input_file: Path) -> None:
         """Validate the CSV header contains the expected schema."""
@@ -34,11 +36,12 @@ class FileSource(PassengerSource):
             actual = ",".join(fieldnames)
             raise ValueError(f"{input_file} must use header {expected}; got {actual}")
 
-    def _passenger_from_row(self, row: dict[str, str], row_number: int) -> Passenger:
+    def _passenger_from_row(self, row: dict[str, str], row_number: int, passenger_id: int) -> Passenger:
         """Convert one CSV row into a Passenger."""
         try:
             return Passenger(
-                id=self._parse_passenger_id(row["id"]),
+                id=passenger_id,
+                full_id=self._parse_passenger_full_id(row["id"]),
                 request_time=self._parse_int(row["time"], "time", row_number),
                 start_floor=self._parse_int(row["source"], "source", row_number),
                 destination_floor=self._parse_int(row["dest"], "dest", row_number),
@@ -46,15 +49,12 @@ class FileSource(PassengerSource):
         except ValueError as error:
             raise ValueError(f"invalid passenger row {row_number}: {error}") from error
 
-    def _parse_passenger_id(self, value: str) -> int:
-        """Parse a positive integer passenger ID, including labels with trailing digits."""
+    def _parse_passenger_full_id(self, value: str) -> str:
+        """Parse the passenger ID exactly as it should be displayed."""
         stripped = value.strip()
-        if stripped.isdigit():
-            return int(stripped)
-        match = re.search(r"(\d+)$", stripped)
-        if match:
-            return int(match.group(1))
-        raise ValueError("id must be a positive integer or end with digits")
+        if not stripped:
+            raise ValueError("id must not be empty")
+        return stripped
 
     def _parse_int(self, value: str, field: str, row_number: int) -> int:
         """Parse one integer CSV field."""

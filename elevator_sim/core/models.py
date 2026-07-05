@@ -39,6 +39,7 @@ class Passenger:
     request_time: int
     start_floor: int
     destination_floor: int
+    full_id: str | None = None
     status: PassengerStatus = PassengerStatus.SCHEDULED
     pickup_time: int | None = None
     dropoff_time: int | None = None
@@ -46,8 +47,12 @@ class Passenger:
 
     def __post_init__(self) -> None:
         """Validate static passenger invariants."""
-        if self.id <= 0:
-            raise ValueError("passenger id must be greater than 0")
+        if self.id < 0:
+            raise ValueError("passenger id must be greater than or equal to 0")
+        if self.full_id is None:
+            self.full_id = str(self.id)
+        if not self.full_id:
+            raise ValueError("passenger full_id must not be empty")
         if self.request_time < 0:
             raise ValueError("request_time must be greater than or equal to 0")
         if self.start_floor < 0:
@@ -143,6 +148,7 @@ class PassengerSnapshot:
     """Immutable passenger state for strategies and presentation adapters."""
 
     id: int
+    full_id: str
     request_time: int
     start_floor: int
     destination_floor: int

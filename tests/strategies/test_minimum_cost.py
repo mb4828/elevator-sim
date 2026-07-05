@@ -1,6 +1,6 @@
 """Tests for minimum-cost elevator scheduling."""
 
-from elevator_sim.core.models import Direction, PassengerStatus
+from elevator_sim.core.models import Direction, ElevatorServicePhase, PassengerStatus
 from elevator_sim.strategies.minimum_cost import MinimumCostStrategy
 from tests.strategies.conftest import build_elevator, build_passenger, build_snapshot
 
@@ -107,3 +107,26 @@ def test_plan_keeps_rider_destinations_in_stop_queue() -> None:
 
     assert decisions[0].assigned_passenger_ids == (2,)
     assert decisions[0].stop_floors == (6,)
+
+
+def test_plan_preserves_onward_rider_stop_while_unloading_current_floor() -> None:
+    """Minimum-cost keeps a future rider destination queued while unloading at the current floor."""
+    state = build_snapshot(
+        elevators=(
+            build_elevator(
+                1,
+                current_floor=3,
+                service_phase=ElevatorServicePhase.UNLOADING,
+                passenger_count=2,
+                target_floors=(3,),
+            ),
+        ),
+        passengers=(
+            build_passenger(1, start_floor=5, destination_floor=3, status=PassengerStatus.RIDING, elevator_id=1),
+            build_passenger(2, start_floor=4, destination_floor=2, status=PassengerStatus.RIDING, elevator_id=1),
+        ),
+    )
+
+    decisions = MinimumCostStrategy().plan(state)
+
+    assert decisions[0].stop_floors == (3, 2)

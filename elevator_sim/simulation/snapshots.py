@@ -38,6 +38,7 @@ def build_passenger_snapshot(passenger: Passenger) -> PassengerSnapshot:
     """Build an immutable snapshot for one passenger."""
     return PassengerSnapshot(
         id=passenger.id,
+        full_id=passenger.full_id or str(passenger.id),
         request_time=passenger.request_time,
         start_floor=passenger.start_floor,
         destination_floor=passenger.destination_floor,
