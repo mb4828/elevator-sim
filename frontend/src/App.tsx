@@ -1,95 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Box, Container, Paper, Stack, Typography } from "@mui/material";
 import Building from "./components/Building";
 import ProgressChart from "./components/ProgressChart";
 import StatsPanel from "./components/StatsPanel";
 import SimulationToolbar from "./components/SimulationToolbar";
+import { usePlayback } from "./hooks/usePlayback";
+import { useKeyboardControls } from "./hooks/useKeyboardControls";
 import { getStats, parseSimulation } from "./simulation";
 import type { LoadedSimulation } from "./types";
 
 export default function App() {
   const [sim, setSim] = useState<LoadedSimulation | null>(null);
-  const [tick, setTick] = useState(0);
   const [loadError, setLoadError] = useState("");
-  const [playbackRate, setPlaybackRate] = useState<1 | 2 | null>(null);
   const lastTick = sim ? sim.frames.length - 1 : 0;
+
+  const playback = usePlayback(lastTick, Boolean(sim));
+  const { tick, playbackRate, play, pause, togglePlay, stepStart, stepBack, stepForward, stepEnd, reset } = playback;
+
   const frame = sim?.frames[tick] ?? null;
   const stats = useMemo(() => (sim ? getStats(sim, tick) : null), [sim, tick]);
 
-  const stepStart = useCallback(() => {
-    setPlaybackRate(null);
-    setTick(0);
-  }, []);
-
-  const stepBack = useCallback(() => {
-    setPlaybackRate(null);
-    setTick((value) => Math.max(0, value - 1));
-  }, []);
-
-  const stepForward = useCallback(() => {
-    setPlaybackRate(null);
-    setTick((value) => Math.min(lastTick, value + 1));
-  }, [lastTick]);
-
-  const stepEnd = useCallback(() => {
-    setPlaybackRate(null);
-    setTick(lastTick);
-  }, [lastTick]);
-
-  useEffect(() => {
-    if (!playbackRate || !sim) return undefined;
-
-    const interval = window.setInterval(() => {
-      setTick((value) => {
-        if (value >= lastTick) {
-          setPlaybackRate(null);
-          return value;
-        }
-
-        const nextTick = Math.min(lastTick, value + 1);
-        if (nextTick >= lastTick) {
-          setPlaybackRate(null);
-        }
-        return nextTick;
-      });
-    }, 1000 / playbackRate);
-
-    return () => window.clearInterval(interval);
-  }, [lastTick, playbackRate, sim]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!sim || isEditableTarget(event.target)) return;
-
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          stepStart();
-        } else {
-          stepBack();
-        }
-        return;
-      }
-
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          stepEnd();
-        } else {
-          stepForward();
-        }
-        return;
-      }
-
-      if (event.key === " ") {
-        event.preventDefault();
-        setPlaybackRate((value) => (value ? null : tick < lastTick ? 1 : null));
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lastTick, sim, stepBack, stepEnd, stepForward, stepStart, tick]);
+  useKeyboardControls({
+    enabled: Boolean(sim),
+    onStepStart: stepStart,
+    onStepBack: stepBack,
+    onStepForward: stepForward,
+    onStepEnd: stepEnd,
+    onTogglePlay: togglePlay,
+  });
 
   const handleFileLoad = (file: File) => {
     const reader = new FileReader();
@@ -97,8 +35,7 @@ export default function App() {
       try {
         const parsed = parseSimulation(JSON.parse(String(reader.result)));
         setSim(parsed);
-        setTick(0);
-        setPlaybackRate(null);
+        reset();
         setLoadError("");
       } catch (error) {
         setLoadError(error instanceof Error ? error.message : "Could not load simulation file.");
@@ -117,8 +54,8 @@ export default function App() {
             playbackRate={playbackRate}
             tick={tick}
             onFileLoad={handleFileLoad}
-            onPause={() => setPlaybackRate(null)}
-            onPlay={(rate) => setPlaybackRate(rate)}
+            onPause={pause}
+            onPlay={play}
             onStepBack={stepBack}
             onStepForward={stepForward}
             onStepStart={stepStart}
@@ -168,10 +105,4 @@ export default function App() {
       </Container>
     </Box>
   );
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tagName = target.tagName.toLowerCase();
-  return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
 }

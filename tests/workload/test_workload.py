@@ -1,7 +1,5 @@
 """Tests for workload generation and strategy comparison helpers."""
 
-import pytest
-
 from elevator_sim.core.metrics import MetricsSummary, PerformanceSummary, SimulationResult
 from elevator_sim.core.models import Elevator, PassengerStatus, SimulationSnapshot
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
@@ -54,20 +52,8 @@ def test_compare_strategies_runs_each_strategy_with_shared_workload() -> None:
     assert results[0].result.metrics.completed_passengers == passenger_count
 
 
-@pytest.mark.parametrize(
-    ("efficiency_score", "expected_cell"),
-    [
-        (49.99, "[red]49.99%[/red]"),
-        (50.00, "[yellow]50.00%[/yellow]"),
-        (79.99, "[yellow]79.99%[/yellow]"),
-        (80.00, "[green]80.00%[/green]"),
-    ],
-)
-def test_build_performance_analysis_table_colors_efficiency_score(
-    efficiency_score: float,
-    expected_cell: str,
-) -> None:
-    """Performance table colors efficiency score by configured thresholds."""
+def test_build_performance_analysis_table_reports_utilization_and_wait_time() -> None:
+    """Performance table reports elevator utilization alongside average and p90 wait time."""
     table = build_performance_analysis_table(
         [
             StrategyComparisonResult(
@@ -75,10 +61,11 @@ def test_build_performance_analysis_table_colors_efficiency_score(
                 result=SimulationResult(
                     ticks=1,
                     metrics=MetricsSummary(
-                        completed_passengers=0,
-                        average_wait_time=None,
-                        minimum_wait_time=None,
-                        maximum_wait_time=None,
+                        completed_passengers=2,
+                        average_wait_time=5.5,
+                        minimum_wait_time=1,
+                        maximum_wait_time=10,
+                        p90_wait_time=9.0,
                         average_total_time=None,
                         minimum_total_time=None,
                         maximum_total_time=None,
@@ -89,7 +76,8 @@ def test_build_performance_analysis_table_colors_efficiency_score(
                         peak_queue=0,
                         total_riding_ticks=0,
                         total_capacity_ticks=1,
-                        efficiency_score=efficiency_score,
+                        efficiency_score=0.0,
+                        utilization=62.5,
                     ),
                     passengers=(),
                     state_log=(),
@@ -98,4 +86,14 @@ def test_build_performance_analysis_table_colors_efficiency_score(
         ]
     )
 
-    assert table.columns[4]._cells == [expected_cell]  # pylint: disable=protected-access
+    assert [column.header for column in table.columns] == [
+        "Strategy",
+        "Total Ticks",
+        "Avg Passengers/Tick",
+        "Utilization %",
+        "Wait Time Avg",
+        "Wait Time P90",
+    ]
+    assert table.columns[3]._cells == ["62.50%"]  # pylint: disable=protected-access
+    assert table.columns[4]._cells == ["5.50"]  # pylint: disable=protected-access
+    assert table.columns[5]._cells == ["9.00"]  # pylint: disable=protected-access

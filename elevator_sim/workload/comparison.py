@@ -73,6 +73,7 @@ def build_summary_statistics_table(workload_size: int, results: list[StrategyCom
     table = Table(title="Summary Statistics", box=box.SQUARE_DOUBLE_HEAD)
     table.add_column("Strategy", no_wrap=True)
     table.add_column("Passengers", justify="right", no_wrap=True)
+    table.add_column("Peak Queue", justify="right", no_wrap=True)
     table.add_column("Wait Time\nMin", justify="right", no_wrap=True)
     table.add_column("Wait Time\nMax", justify="right", no_wrap=True)
     table.add_column("Wait Time\nAvg", justify="right", no_wrap=True)
@@ -85,6 +86,7 @@ def build_summary_statistics_table(workload_size: int, results: list[StrategyCom
         table.add_row(
             comparison.strategy_name,
             str(workload_size),
+            str(comparison.result.performance.peak_queue),
             _format_int(metrics.minimum_wait_time),
             _format_int(metrics.maximum_wait_time),
             _format_float(metrics.average_wait_time),
@@ -101,17 +103,20 @@ def build_performance_analysis_table(results: list[StrategyComparisonResult]) ->
     table.add_column("Strategy", no_wrap=True)
     table.add_column("Total Ticks", justify="right", no_wrap=True)
     table.add_column("Avg Passengers/Tick", justify="right", no_wrap=True)
-    table.add_column("Peak Queue", justify="right", no_wrap=True)
-    table.add_column("Efficiency Score", justify="right", no_wrap=True)
+    table.add_column("Utilization %", justify="right", no_wrap=True)
+    table.add_column("Wait Time Avg", justify="right", no_wrap=True)
+    table.add_column("Wait Time P90", justify="right", no_wrap=True)
 
     for comparison in results:
         performance = comparison.result.performance
+        metrics = comparison.result.metrics
         table.add_row(
             comparison.strategy_name,
             str(performance.total_ticks),
             _format_float(performance.average_passengers_per_tick),
-            str(performance.peak_queue),
-            _format_efficiency_score(performance.efficiency_score),
+            f"{performance.utilization:.2f}%",
+            _format_float(metrics.average_wait_time),
+            _format_float(metrics.p90_wait_time),
         )
     return table
 
@@ -128,14 +133,3 @@ def _format_float(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:.2f}"
-
-
-def _format_efficiency_score(value: float) -> str:
-    """Format efficiency score with Rich markup for threshold-based coloring."""
-    if value < 50:
-        color = "red"
-    elif value < 80:
-        color = "yellow"
-    else:
-        color = "green"
-    return f"[{color}]{value:.2f}%[/{color}]"

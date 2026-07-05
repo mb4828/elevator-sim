@@ -3,7 +3,7 @@
 Rules:
 - Assign every unassigned waiting passenger during each planning pass.
 - Prefer the nearest elevator already moving toward the pickup floor in the passenger's requested direction.
-- Fall back to the nearest elevator when all cars would need to reverse first.
+- Leave a passenger waiting (retry next tick) when every car would need to reverse first.
 - Keep current rider destinations and assigned pickup floors on the next directional sweep, then append newly assigned
   passenger destinations after their pickup floors.
 """
@@ -33,7 +33,8 @@ class NearestCarStrategy(ElevatorStrategy):
         )
         for passenger in waiting_passengers:
             elevator = self._nearest_elevator(state.elevators, passenger)
-            plan_assignments[elevator.id].append(passenger.id)
+            if elevator is not None:
+                plan_assignments[elevator.id].append(passenger.id)
 
         return [
             ElevatorDecision(
@@ -57,13 +58,13 @@ class NearestCarStrategy(ElevatorStrategy):
         self,
         elevators: tuple[ElevatorSnapshot, ...],
         passenger: PassengerSnapshot,
-    ) -> ElevatorSnapshot:
-        """Return the nearest elevator, preferring cars already moving toward the passenger."""
+    ) -> ElevatorSnapshot | None:
+        """Return the nearest elevator moving toward the passenger, or None if all cars must reverse first."""
         eligible_elevators = [
             elevator for elevator in elevators if self._is_moving_toward_passenger(elevator, passenger)
         ]
         if not eligible_elevators:
-            eligible_elevators = list(elevators)
+            return None
         return min(
             eligible_elevators,
             key=lambda elevator: (abs(elevator.current_floor - passenger.start_floor), elevator.id),
@@ -105,11 +106,17 @@ class NearestCarStrategy(ElevatorStrategy):
             for passenger in passengers
             if passenger.status == PassengerStatus.RIDING and passenger.elevator_id == elevator.id
         ]
+        sweep_direction = self._route_direction(elevator, rider_destination_stops)
+        if sweep_direction != Direction.IDLE:
+            return self._build_moving_stop_queue(
+                elevator, passenger_by_id, assigned_passenger_ids, rider_destination_stops, sweep_direction
+            )
+
         current_sweep_pickup_stops: list[int] = []
         reverse_sweep_pickup_stops: list[int] = []
         following_sweep_pickup_stops: list[int] = []
         newly_assigned_passengers: list[PassengerSnapshot] = []
-        direction = self._route_direction(elevator, rider_destination_stops)
+        direction = sweep_direction
         for passenger_id in assigned_passenger_ids:
             passenger = passenger_by_id[passenger_id]
             newly_assigned_passengers.append(passenger)
@@ -143,6 +150,36 @@ class NearestCarStrategy(ElevatorStrategy):
                 *destination_stops,
             )
         )
+
+    def _build_moving_stop_queue(
+        self,
+        elevator: ElevatorSnapshot,
+        passenger_by_id: dict[int, PassengerSnapshot],
+        assigned_passenger_ids: list[int],
+        rider_destination_stops: list[int],
+        direction: Direction,
+    ) -> tuple[int, ...]:
+        """Build a stop queue for a travelling elevator, keeping each passenger's pickup and
+        destination in the same directional sweep so the car finishes its current direction first.
+        """
+        reverse_direction = self._reverse_direction(direction)
+        current_sweep_stops: list[int] = list(rider_destination_stops)
+        reverse_sweep_stops: list[int] = []
+        following_sweep_stops: list[int] = []
+        for passenger_id in assigned_passenger_ids:
+            passenger = passenger_by_id[passenger_id]
+            trip_stops = (passenger.start_floor, passenger.destination_floor)
+            if self._is_current_sweep_pickup(elevator, passenger, direction):
+                current_sweep_stops.extend(trip_stops)
+            elif self._passenger_direction(passenger) == reverse_direction:
+                reverse_sweep_stops.extend(trip_stops)
+            else:
+                following_sweep_stops.extend(trip_stops)
+
+        ordered_current_sweep = self._order_stops(elevator.current_floor, direction, current_sweep_stops)
+        ordered_reverse_sweep = self._order_future_sweep_pickups(reverse_direction, reverse_sweep_stops)
+        ordered_following_sweep = self._order_future_sweep_pickups(direction, following_sweep_stops)
+        return self._dedupe_stops((*ordered_current_sweep, *ordered_reverse_sweep, *ordered_following_sweep))
 
     def _is_current_sweep_pickup(
         self,

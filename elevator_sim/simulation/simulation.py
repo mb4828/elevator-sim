@@ -31,6 +31,8 @@ class Simulation:
         self.peak_queue = 0
         self.total_riding_ticks = 0
         self.total_capacity_ticks = 0
+        self.total_active_elevator_ticks = 0
+        self.total_elevator_ticks = 0
         self._validate_initial_state(self.floors, self.elevators)
         self.state_log: list[SimulationSnapshot] = [self.snapshot()]
 
@@ -74,6 +76,8 @@ class Simulation:
                 total_riding_ticks=self.total_riding_ticks,
                 total_capacity_ticks=self.total_capacity_ticks,
                 peak_queue=self.peak_queue,
+                total_active_elevator_ticks=self.total_active_elevator_ticks,
+                total_elevator_ticks=self.total_elevator_ticks,
             ),
             passengers=passengers,
             state_log=tuple(self.state_log),
@@ -89,7 +93,12 @@ class Simulation:
 
     def _has_stop_work(self, elevator: Elevator) -> bool:
         """Return whether an elevator still has queued or in-progress stop work."""
-        return bool(elevator.target_floors or elevator.service_phase != ElevatorServicePhase.MOVING)
+        servicing_phases = (
+            ElevatorServicePhase.STOPPING,
+            ElevatorServicePhase.DROPPING_OFF,
+            ElevatorServicePhase.PICKING_UP,
+        )
+        return bool(elevator.target_floors) or elevator.service_phase in servicing_phases
 
     def _record_performance_tick(self) -> None:
         """Record queue and utilization metrics for one completed tick."""
@@ -99,6 +108,12 @@ class Simulation:
         self.peak_queue = max(self.peak_queue, waiting_passengers)
         self.total_riding_ticks += sum(len(elevator.passengers) for elevator in self.elevators)
         self.total_capacity_ticks += sum(elevator.capacity for elevator in self.elevators)
+        self.total_elevator_ticks += len(self.elevators)
+        self.total_active_elevator_ticks += sum(1 for elevator in self.elevators if self._is_elevator_busy(elevator))
+
+    def _is_elevator_busy(self, elevator: Elevator) -> bool:
+        """Return whether an elevator has any active work this tick (not sitting idle)."""
+        return bool(elevator.passengers or elevator.assigned_passenger_ids or self._has_stop_work(elevator))
 
     def _validate_initial_state(self, floors: int, elevators: list[Elevator]) -> None:
         """Validate static simulation configuration before the first tick."""

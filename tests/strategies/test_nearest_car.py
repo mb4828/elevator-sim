@@ -112,29 +112,8 @@ def test_plan_uses_idle_elevator_when_moving_elevators_are_not_traveling_toward_
     assert decisions[1].stop_floors == (5, 1)
 
 
-def test_plan_ignores_capacity_when_assigning_waiting_passengers() -> None:
-    """Nearest-car assigns waiting passengers immediately without reserving capacity."""
-    state = _snapshot(
-        elevators=(
-            _elevator(1, current_floor=4, direction=Direction.IDLE, passenger_count=1, capacity=1),
-            _elevator(2, current_floor=3, direction=Direction.IDLE, capacity=1, assigned_passenger_ids=(1,)),
-            _elevator(3, current_floor=0, direction=Direction.IDLE, capacity=2),
-        ),
-        passengers=(
-            _passenger(1, start_floor=3, destination_floor=6),
-            _passenger(2, start_floor=4, destination_floor=7),
-        ),
-    )
-
-    decisions = NearestCarStrategy().plan(state)
-
-    assert decisions[0].assigned_passenger_ids == (2,)
-    assert decisions[1].assigned_passenger_ids == (1,)
-    assert decisions[2].assigned_passenger_ids == ()
-
-
-def test_plan_assigns_to_nearest_elevator_when_all_cars_are_moving_away() -> None:
-    """Nearest-car leaves no waiting passenger unassigned when moving cars must reverse."""
+def test_plan_leaves_passenger_waiting_when_all_cars_are_moving_away() -> None:
+    """Nearest-car leaves a passenger unassigned rather than pulling a car off its route to reverse."""
     state = _snapshot(
         elevators=(
             _elevator(1, current_floor=8, direction=Direction.UP),
@@ -145,15 +124,16 @@ def test_plan_assigns_to_nearest_elevator_when_all_cars_are_moving_away() -> Non
 
     decisions = NearestCarStrategy().plan(state)
 
-    assert decisions[0].assigned_passenger_ids == (1,)
+    assert decisions[0].assigned_passenger_ids == ()
     assert decisions[1].assigned_passenger_ids == ()
-    assert decisions[0].stop_floors == (5, 1)
+    assert decisions[0].stop_floors == ()
+    assert decisions[1].stop_floors == ()
 
 
 def test_plan_orders_stops_for_existing_riders_and_new_pickups() -> None:
-    """Nearest-car waits to pick up opposite-direction passengers until after reversing."""
+    """Nearest-car waits to pick up an already-assigned opposite-direction passenger until after reversing."""
     state = _snapshot(
-        elevators=(_elevator(1, current_floor=3, direction=Direction.UP),),
+        elevators=(_elevator(1, current_floor=3, direction=Direction.UP, assigned_passenger_ids=(2,)),),
         passengers=(
             _passenger(1, start_floor=0, destination_floor=7, status=PassengerStatus.RIDING, elevator_id=1),
             _passenger(2, start_floor=5, destination_floor=1),
@@ -180,3 +160,22 @@ def test_plan_places_new_passenger_destinations_after_pickup_floors() -> None:
 
     assert decisions[0].assigned_passenger_ids == (1, 2)
     assert decisions[0].stop_floors == (1, 5, 9, 2)
+
+
+def test_plan_finishes_current_sweep_before_reversing_for_same_floor_pickups() -> None:
+    """A car sweeping up serves an up-bound rider's destination before reversing for a down-bound pickup.
+
+    Both passengers board at floor 5, but the up-bound one (5->6) belongs to the current up sweep and
+    the down-bound one (5->0) to the reverse sweep, so the queue must go up to 6 before down to 0.
+    """
+    state = _snapshot(
+        elevators=(_elevator(1, current_floor=5, direction=Direction.UP, assigned_passenger_ids=(3, 5)),),
+        passengers=(
+            _passenger(3, start_floor=5, destination_floor=0),
+            _passenger(5, start_floor=5, destination_floor=6),
+        ),
+    )
+
+    decisions = NearestCarStrategy().plan(state)
+
+    assert decisions[0].stop_floors == (5, 6, 0)

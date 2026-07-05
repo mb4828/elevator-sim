@@ -24,6 +24,7 @@ class PassengerStatus(str, Enum):
 class ElevatorServicePhase(str, Enum):
     """Per-tick service state for an elevator at a stop floor."""
 
+    IDLE = "idle"
     MOVING = "moving"
     STOPPING = "stopping"
     DROPPING_OFF = "dropping_off"
@@ -95,7 +96,7 @@ class Elevator:
     current_floor: int
     capacity: int
     direction: Direction = Direction.IDLE
-    service_phase: ElevatorServicePhase = ElevatorServicePhase.MOVING
+    service_phase: ElevatorServicePhase = ElevatorServicePhase.IDLE
     passengers: list[Passenger] = field(default_factory=list)
     assigned_passenger_ids: set[int] = field(default_factory=set)
     target_floors: list[int] = field(default_factory=list)

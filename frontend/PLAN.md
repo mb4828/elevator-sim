@@ -1,4 +1,4 @@
-# Elevator Simulation Viewer — Build Plan
+# Elevator Simulation Visualizer — Build Plan
 
 A single-page React + MUI app that loads a simulation `output.json` and lets you
 step through it tick by tick, with a building visualization on the left, live

@@ -1,14 +1,14 @@
-import { ChangeEvent, useRef } from "react";
-import { AppBar, Box, Button, Divider, IconButton, Paper, Stack, Toolbar, Tooltip, Typography } from "@mui/material";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import FastForwardIcon from "@mui/icons-material/FastForward";
-import FirstPageIcon from "@mui/icons-material/FirstPage";
-import LastPageIcon from "@mui/icons-material/LastPage";
-import PauseIcon from "@mui/icons-material/Pause";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import type { ReactElement } from "react";
+import { ChangeEvent, useRef } from 'react';
+import { AppBar, Box, Button, Divider, IconButton, Paper, Stack, Toolbar, Tooltip, Typography } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import FastForwardIcon from '@mui/icons-material/FastForward';
+import FirstPageIcon from '@mui/icons-material/FirstPage';
+import LastPageIcon from '@mui/icons-material/LastPage';
+import PauseIcon from '@mui/icons-material/Pause';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import type { ReactElement } from 'react';
 
 interface Props {
   lastTick: number;
@@ -42,7 +42,7 @@ export default function SimulationToolbar({
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) onFileLoad(file);
-    event.target.value = "";
+    event.target.value = '';
   };
   const pauseDisabled = !playbackRate;
   const playDisabled = !loaded || tick === lastTick || playbackRate === 1;
@@ -51,11 +51,11 @@ export default function SimulationToolbar({
   const endDisabled = !loaded || tick === lastTick;
 
   return (
-    <Paper elevation={2} sx={{ overflow: "hidden" }}>
+    <Paper elevation={2} sx={{ overflow: 'hidden' }}>
       <AppBar position="static" color="primary" elevation={0}>
         <Toolbar
           sx={{
-            flexWrap: "wrap",
+            flexWrap: 'wrap',
             gap: 1.5,
             minHeight: { xs: 72, sm: 64 },
             py: 1,
@@ -63,12 +63,17 @@ export default function SimulationToolbar({
         >
           <input ref={inputRef} hidden type="file" accept="application/json,.json" onChange={handleFileChange} />
           <Typography variant="h6" component="div" sx={{ mr: { xs: 0, md: 2 }, flexGrow: { xs: 1, md: 0 } }}>
-            Elevator Simulation Viewer
+            Elevator Simulation Visualizer
           </Typography>
-          <Button color="inherit" variant="outlined" startIcon={<UploadFileIcon />} onClick={() => inputRef.current?.click()}>
-            Load output.json
+          <Button
+            color="inherit"
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            onClick={() => inputRef.current?.click()}
+          >
+            Load log.json
           </Button>
-          <Box sx={{ flexGrow: 1, display: { xs: "none", md: "block" } }} />
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
           <Stack direction="row" spacing={0.5}>
             <ControlTooltip disabled={pauseDisabled} title="Pause (Space)">
               <IconButton color="inherit" disabled={pauseDisabled} onClick={onPause}>
@@ -77,7 +82,7 @@ export default function SimulationToolbar({
             </ControlTooltip>
             <ControlTooltip disabled={playDisabled} title="Play (Space)">
               <IconButton
-                color={playbackRate === 1 ? "secondary" : "inherit"}
+                color={playbackRate === 1 ? 'secondary' : 'inherit'}
                 disabled={playDisabled}
                 onClick={() => onPlay(1)}
               >
@@ -86,30 +91,30 @@ export default function SimulationToolbar({
             </ControlTooltip>
             <ControlTooltip disabled={play2xDisabled} title="Play 2x">
               <IconButton
-                color={playbackRate === 2 ? "secondary" : "inherit"}
+                color={playbackRate === 2 ? 'secondary' : 'inherit'}
                 disabled={play2xDisabled}
                 onClick={() => onPlay(2)}
               >
                 <FastForwardIcon />
               </IconButton>
             </ControlTooltip>
-            <Divider flexItem orientation="vertical" sx={{ borderColor: "grey.300", opacity: 0.85 }} />
-            <ControlTooltip disabled={startDisabled} title="Skip to start (Shift + Left)">
+            <Divider flexItem orientation="vertical" sx={{ borderColor: 'grey.300', opacity: 0.85 }} />
+            <ControlTooltip disabled={startDisabled} title="Skip to start (Shift + ←)">
               <IconButton color="inherit" disabled={startDisabled} onClick={onStepStart}>
                 <FirstPageIcon />
               </IconButton>
             </ControlTooltip>
-            <ControlTooltip disabled={startDisabled} title="Step back (Left)">
+            <ControlTooltip disabled={startDisabled} title="Step back (←)">
               <IconButton color="inherit" disabled={startDisabled} onClick={onStepBack}>
                 <ChevronLeftIcon />
               </IconButton>
             </ControlTooltip>
-            <ControlTooltip disabled={endDisabled} title="Step forward (Right)">
+            <ControlTooltip disabled={endDisabled} title="Step forward (→)">
               <IconButton color="inherit" disabled={endDisabled} onClick={onStepForward}>
                 <ChevronRightIcon />
               </IconButton>
             </ControlTooltip>
-            <ControlTooltip disabled={endDisabled} title="Skip to end (Shift + Right)">
+            <ControlTooltip disabled={endDisabled} title="Skip to end (Shift + →)">
               <IconButton color="inherit" disabled={endDisabled} onClick={onStepEnd}>
                 <LastPageIcon />
               </IconButton>

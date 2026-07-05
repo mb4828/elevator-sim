@@ -126,6 +126,23 @@ def test_run_completes_single_passenger_trip() -> None:
     assert result.passengers[0].status == PassengerStatus.COMPLETED
 
 
+def test_elevator_without_assigned_work_reports_idle_phase() -> None:
+    """An elevator with no destination reports an idle service phase, not moving."""
+    simulation = Simulation(
+        floors=4,
+        elevators=[Elevator(id=1, current_floor=2, capacity=4)],
+        strategy=DirectPassengerStrategy(),
+        passenger_source=StaticPassengerSource(()),
+    )
+
+    initial_snapshot = simulation.state_log[0]
+    snapshot = simulation.step()
+
+    assert initial_snapshot.elevators[0].service_phase == ElevatorServicePhase.IDLE
+    assert snapshot.elevators[0].current_floor == 2
+    assert snapshot.elevators[0].service_phase == ElevatorServicePhase.IDLE
+
+
 def test_run_records_performance_summary() -> None:
     """Simulation records queue depth and utilization across completed ticks."""
     passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
@@ -144,6 +161,7 @@ def test_run_records_performance_summary() -> None:
     assert result.performance.total_riding_ticks == 3
     assert result.performance.total_capacity_ticks == 12
     assert result.performance.efficiency_score == 25.0
+    assert result.performance.utilization == pytest.approx(83.333, abs=1e-3)
 
 
 def test_run_records_complete_state_log() -> None:
@@ -251,7 +269,7 @@ def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
 
 
 def test_dropoff_stop_skips_pickup_when_no_passengers_are_waiting() -> None:
-    """Elevator returns to moving after drop-off when no assigned passenger can board."""
+    """Elevator goes idle after drop-off when no assigned passenger can board and no stop is queued."""
     onboard_passenger = Passenger(
         id=1,
         request_time=0,
@@ -276,7 +294,7 @@ def test_dropoff_stop_skips_pickup_when_no_passengers_are_waiting() -> None:
     assert arrived.elevators[0].service_phase == ElevatorServicePhase.STOPPING
     assert stopped.elevators[0].service_phase == ElevatorServicePhase.DROPPING_OFF
     assert dropped_off.elevators[0].passenger_count == 0
-    assert dropped_off.elevators[0].service_phase == ElevatorServicePhase.MOVING
+    assert dropped_off.elevators[0].service_phase == ElevatorServicePhase.IDLE
 
 
 def test_current_floor_stop_waits_before_pickup() -> None:
@@ -298,7 +316,7 @@ def test_current_floor_stop_waits_before_pickup() -> None:
     assert second_snapshot.passengers[0].status == PassengerStatus.WAITING
     assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.PICKING_UP
     assert third_snapshot.passengers[0].status == PassengerStatus.RIDING
-    assert third_snapshot.elevators[0].service_phase == ElevatorServicePhase.MOVING
+    assert third_snapshot.elevators[0].service_phase == ElevatorServicePhase.IDLE
 
 
 def test_passenger_who_cannot_fit_is_unassigned_and_stays_waiting() -> None:
@@ -355,3 +373,26 @@ def test_duplicate_stop_floors_are_collapsed() -> None:
     snapshot = simulation.step()
 
     assert snapshot.elevators[0].target_floors == (3, 2)
+
+
+def test_pickup_boards_only_passengers_travelling_in_onward_direction() -> None:
+    """An up-bound stop boards only up-bound passengers; opposite-direction ones stay waiting."""
+    up_passenger = Passenger(id=1, request_time=0, start_floor=5, destination_floor=6)
+    down_passenger = Passenger(id=2, request_time=0, start_floor=5, destination_floor=0)
+    simulation = Simulation(
+        floors=8,
+        elevators=[Elevator(id=1, current_floor=4, capacity=4)],
+        # Queue continues up (to 6) before reversing (to 0), so the stop at 5 is an up-bound stop.
+        strategy=StopQueueStrategy(stop_floors=(5, 6, 0), assigned_passenger_ids=(1, 2)),
+        passenger_source=StaticPassengerSource((up_passenger, down_passenger)),
+    )
+
+    simulation.step()  # move 4 -> 5 (arrive, stopping)
+    simulation.step()  # stopping -> picking_up
+    snapshot = simulation.step()  # picking_up boards only the up-bound passenger
+
+    boarded = {passenger.id: passenger.status for passenger in snapshot.passengers}
+    assert boarded[1] == PassengerStatus.RIDING
+    assert boarded[2] == PassengerStatus.WAITING
+    assert snapshot.elevators[0].passenger_count == 1
+    assert 2 in snapshot.elevators[0].assigned_passenger_ids

@@ -1,6 +1,6 @@
-import { Box, Chip, Paper, Stack, Typography, useTheme } from "@mui/material";
-import { BarChart } from "@mui/x-charts/BarChart";
-import type { LoadedSimulation } from "../types";
+import { Box, Chip, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { BarChart } from '@mui/x-charts/BarChart';
+import type { LoadedSimulation } from '../types';
 
 interface Props {
   sim: LoadedSimulation;
@@ -30,14 +30,14 @@ export default function ProgressChart({ sim, tick }: Props) {
     <Paper variant="outlined" sx={{ minWidth: 0, p: { xs: 2, md: 3 } }}>
       <Stack spacing={2}>
         <Stack
-          direction={{ xs: "column", sm: "row" }}
+          direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
           spacing={1.5}
         >
           <Box>
             <Typography variant="h6" component="h2">
-              Passenger progress
+              Passenger Progress
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Request, ride, and completion timeline
@@ -49,29 +49,29 @@ export default function ProgressChart({ sim, tick }: Props) {
             <Chip color="success" size="small" label="Complete" />
           </Stack>
         </Stack>
-        <Box sx={{ display: "grid", height: 360, minWidth: 0, overflow: "hidden", placeItems: "center" }}>
+        <Box sx={{ display: 'grid', height: 500, minWidth: 0, overflow: 'hidden', placeItems: 'center' }}>
           {chartRows.length > 0 ? (
             <BarChart
               dataset={chartRows}
-              height={360}
+              height={500}
               layout="horizontal"
               margin={{ bottom: 48, left: 56, right: 24, top: 16 }}
               series={[
-                { color: "transparent", dataKey: "offset", stack: "progress" },
-                { color: theme.palette.warning.light, dataKey: "waiting", label: "Waiting", stack: "progress" },
-                { color: theme.palette.primary.main, dataKey: "riding", label: "Riding", stack: "progress" },
-                { color: theme.palette.success.main, dataKey: "complete", label: "Complete", stack: "progress" },
+                { color: 'transparent', dataKey: 'offset', stack: 'progress' },
+                { color: theme.palette.warning.light, dataKey: 'waiting', label: 'Waiting', stack: 'progress' },
+                { color: theme.palette.primary.main, dataKey: 'riding', label: 'Riding', stack: 'progress' },
+                { color: theme.palette.success.main, dataKey: 'complete', label: 'Complete', stack: 'progress' },
               ]}
               slotProps={{
                 legend: { hidden: true },
               }}
-              xAxis={[{ label: "Tick", max: total, min: 0 }]}
+              xAxis={[{ label: 'Tick', max: total, min: 0 }]}
               yAxis={[
                 {
-                  dataKey: "label",
-                  label: "Passenger",
-                  scaleType: "band",
-                  tickLabelStyle: { display: "none" },
+                  dataKey: 'label',
+                  label: 'Passenger #',
+                  scaleType: 'band',
+                  tickLabelStyle: { display: 'none' },
                 },
               ]}
             />

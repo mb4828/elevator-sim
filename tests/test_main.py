@@ -56,11 +56,13 @@ def test_main_prints_summary_and_performance_tables(
     assert "Min" in output
     assert "Max" in output
     assert "Avg" in output
+    assert "Peak Queue" in output
     assert "Performance Analysis" in output
     assert "Total Ticks" in output
     assert "Avg Passengers/Tick" in output
-    assert "Peak Queue" in output
-    assert "Efficiency Score" in output
+    assert "Utilization %" in output
+    assert "Wait Time Avg" in output
+    assert "Wait Time P90" in output
 
     state_log_path = tmp_path / "nearest_car_log.json"
     state_log = json.loads(state_log_path.read_text(encoding="utf-8"))

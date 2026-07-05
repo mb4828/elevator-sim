@@ -28,7 +28,7 @@ def apply_decisions(
 def apply_stop_floors(elevator: Elevator, stop_floors: tuple[int, ...], floors: int) -> None:
     """Validate and apply an elevator's ordered stop queue."""
     normalized_stop_floors = normalize_stop_floors(stop_floors, floors)
-    if elevator.service_phase == ElevatorServicePhase.MOVING:
+    if elevator.service_phase in (ElevatorServicePhase.MOVING, ElevatorServicePhase.IDLE):
         elevator.target_floors = normalized_stop_floors
         return
 
