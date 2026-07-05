@@ -2,9 +2,12 @@
 
 from pathlib import Path
 
+import pytest
+
 from elevator_sim.core.metrics import MetricsSummary, PerformanceSummary, SimulationResult
 from elevator_sim.core.models import Elevator, PassengerStatus, SimulationSnapshot
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
+from elevator_sim.workload.base import PassengerSource
 from elevator_sim.workload.comparison import (
     StrategyComparisonResult,
     WorkloadConfig,
@@ -28,6 +31,12 @@ class CompletingStrategy(ElevatorStrategy):
         assigned = () if passenger.status == PassengerStatus.RIDING else (passenger.id,)
         target = passenger.destination_floor if passenger.status == PassengerStatus.RIDING else passenger.start_floor
         return [ElevatorDecision(elevator.id, stop_floors=(target,), assigned_passenger_ids=assigned)]
+
+
+def test_passenger_source_rejects_negative_duration() -> None:
+    """Passenger source rejects a negative workload duration."""
+    with pytest.raises(ValueError, match="duration must be non-negative"):
+        PassengerSource(passengers=(), duration=-1)
 
 
 def test_create_workload_source_loads_file_passengers(tmp_path: Path) -> None:

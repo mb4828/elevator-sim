@@ -1,5 +1,5 @@
 export type Direction = "idle" | "up" | "down";
-export type ElevatorPhase = "idle" | "moving" | "stopping" | "loading" | "unloading" | string;
+export type ElevatorPhase = "idle" | "moving" | "stopping" | "loading" | "unloading";
 export type PassengerStatus = "waiting" | "riding";
 
 export interface PassengerDefinition {
@@ -20,6 +20,7 @@ export interface FrameElevator {
   direction: Direction;
   phase: ElevatorPhase;
   passenger_count: number;
+  target_floor: number | null;
 }
 
 export interface FramePassenger {
@@ -36,7 +37,7 @@ export interface Frame {
 }
 
 export interface OutputFile {
-  version?: string;
+  version?: number;
   floors: number;
   elevators: ElevatorDefinition[];
   passengers: PassengerDefinition[];
@@ -49,7 +50,7 @@ export interface Journey {
   boardTime: number | null;
   completeTime: number | null;
   waitTime: number | null;
-  rideTime: number | null;
+  totalTime: number | null;
   start: number;
   dest: number;
 }
@@ -58,6 +59,8 @@ export type JourneyMap = Record<number, Journey>;
 
 export interface LoadedSimulation extends OutputFile {
   journeys: JourneyMap;
+  /** Running maximum of waiting passengers, indexed by tick. */
+  peakQueueByTick: number[];
 }
 
 export interface Stats {
@@ -67,5 +70,5 @@ export interface Stats {
   waiting: number;
   peakQueue: number;
   waitSummary: string;
-  rideSummary: string;
+  totalSummary: string;
 }

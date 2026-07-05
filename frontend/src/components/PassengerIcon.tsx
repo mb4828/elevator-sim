@@ -1,7 +1,5 @@
 import { keyframes } from '@emotion/react';
 import { Box, SxProps, Theme } from '@mui/material';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import PersonIcon from '@mui/icons-material/Person';
 import { forwardRef } from 'react';
 import type { PassengerDefinition } from '../types';
@@ -48,7 +46,8 @@ export function passengerTooltip(
   return `#${passenger.id} to ${passenger.destination_floor} [${elevatorLabel}]`;
 }
 
-// Direction is also encoded as an arrow badge (not just color) so it reads for color-blind users.
+// Direction is also encoded via the destination floor number (not just color) so it reads for
+// color-blind users; it sits superscript for up and subscript for down.
 export const DirectionalPersonIcon = forwardRef<
   HTMLDivElement,
   {
@@ -60,23 +59,27 @@ export const DirectionalPersonIcon = forwardRef<
 >(({ passenger, personFontSize, badgeSize, sx, ...other }, ref) => {
   const direction = passenger ? passengerDirection(passenger) : undefined;
   const color = passenger ? passengerDirectionColor(passenger) : 'disabled';
-  const ArrowIcon = direction === 'down' ? ArrowDropDownIcon : ArrowDropUpIcon;
 
   return (
     <Box ref={ref} sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0, ...sx }} {...other}>
       <PersonIcon color={color} sx={{ fontSize: personFontSize }} />
-      {direction && (
-        <ArrowIcon
+      {direction && passenger && (
+        <Box
+          component="span"
           sx={(theme) => ({
             position: 'absolute',
-            right: -badgeSize * 0.35,
-            top: direction === 'up' ? -badgeSize * 0.35 : undefined,
-            bottom: direction === 'down' ? -badgeSize * 0.35 : undefined,
-            fontSize: badgeSize,
+            right: -badgeSize * 0.3,
+            top: direction === 'up' ? -badgeSize * 0.3 : undefined,
+            bottom: direction === 'down' ? -badgeSize * 0.3 : undefined,
+            fontSize: badgeSize * 0.6,
+            lineHeight: 1,
+            fontWeight: 700,
             color: `${color}.main`,
-            filter: `drop-shadow(0 0 1.5px ${theme.palette.background.paper})`,
+            textShadow: `0 0 1.5px ${theme.palette.background.paper}, 0 0 1.5px ${theme.palette.background.paper}`,
           })}
-        />
+        >
+          {passenger.destination_floor}
+        </Box>
       )}
     </Box>
   );

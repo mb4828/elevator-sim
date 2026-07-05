@@ -9,11 +9,13 @@ import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import type { ReactElement } from 'react';
+import type { PlaybackRate } from '../hooks/usePlayback';
 
 interface Props {
   lastTick: number;
   loaded: boolean;
-  playbackRate: 1 | 2 | null;
+  loadedFileName: string;
+  playbackRate: PlaybackRate;
   tick: number;
   onFileLoad: (file: File) => void;
   onPause: () => void;
@@ -27,6 +29,7 @@ interface Props {
 export default function SimulationToolbar({
   lastTick,
   loaded,
+  loadedFileName,
   playbackRate,
   tick,
   onFileLoad,
@@ -49,6 +52,7 @@ export default function SimulationToolbar({
   const play2xDisabled = !loaded || tick === lastTick || playbackRate === 2;
   const startDisabled = !loaded || tick === 0;
   const endDisabled = !loaded || tick === lastTick;
+  const loadButtonLabel = loadedFileName ? `Loaded ${loadedFileName}` : 'Load log.json';
 
   return (
     <Paper elevation={2} sx={{ overflow: 'hidden' }}>
@@ -70,8 +74,11 @@ export default function SimulationToolbar({
             variant="outlined"
             startIcon={<UploadFileIcon />}
             onClick={() => inputRef.current?.click()}
+            sx={{ maxWidth: { xs: '100%', sm: 280 }, textTransform: 'none' }}
           >
-            Load log.json
+            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {loadButtonLabel}
+            </Box>
           </Button>
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
           <Stack direction="row" spacing={0.5}>

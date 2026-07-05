@@ -4,6 +4,8 @@ React app for visualizing elevator simulation JSON logs produced by the Python s
 entirely in the browser: load a generated `.json` log, then inspect elevator positions, passenger state, playback
 progress, and derived wait/ride statistics.
 
+![screencapture.gif](screencapture.gif)
+
 ## Prerequisites
 
 - Node.js
@@ -50,7 +52,8 @@ uv run python main.py \
   --floors 10 \
   --elevators 2 \
   --capacity 6 \
-  --strategy nearest_car
+  --input-file sample_input.csv \
+  --strategy nearest_car_same_direction
 ```
 
 By default, the Python script writes the visualization log to the current directory. Use `--output-dir` when you want

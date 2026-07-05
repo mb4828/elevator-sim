@@ -1,6 +1,6 @@
-import { alpha, Box, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
-import type { Frame, FramePassenger, LoadedSimulation, PassengerDefinition } from '../types';
+import { alpha, Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import type { Frame, LoadedSimulation, PassengerDefinition } from '../types';
+import { useEnterExitTransition } from '../hooks/useEnterExitTransition';
 import ElevatorCar from './ElevatorCar';
 import { DirectionalPersonIcon, passengerEnter, passengerExit, passengerTooltip } from './PassengerIcon';
 
@@ -10,9 +10,7 @@ interface Props {
 }
 
 export default function Building({ frame, sim }: Props) {
-  const activeById = Object.fromEntries(
-    (frame.passengers ?? []).map((passenger) => [passenger.id, passenger]),
-  ) as Record<number, FramePassenger>;
+  const activeById = new Map((frame.passengers ?? []).map((passenger) => [passenger.id, passenger]));
   const passengerById = new Map(sim.passengers.map((passenger) => [passenger.id, passenger]));
   const assignedElevatorById = new Map(
     (frame.passengers ?? []).map((passenger) => [passenger.id, passenger.elevator_id]),
@@ -72,7 +70,8 @@ export default function Building({ frame, sim }: Props) {
               </Box>
               <WaitingPassengerIcons
                 passengers={sim.passengers.filter(
-                  (passenger) => passenger.start_floor === floor && activeById[passenger.id]?.status === 'waiting',
+                  (passenger) =>
+                    passenger.start_floor === floor && activeById.get(passenger.id)?.status === 'waiting',
                 )}
                 assignedElevatorById={assignedElevatorById}
               />
@@ -127,45 +126,7 @@ function WaitingPassengerIcons({
   passengers: PassengerDefinition[];
   assignedElevatorById: Map<number, number | null | undefined>;
 }) {
-  const initialPassengerMap = new Map(passengers.map((passenger) => [passenger.id, passenger]));
-  const previousIds = useRef(passengers.map((passenger) => passenger.id));
-  const previousPassengerMap = useRef(initialPassengerMap);
-  const [displayIds, setDisplayIds] = useState(previousIds.current);
-  const [displayPassengerMap, setDisplayPassengerMap] = useState(initialPassengerMap);
-  const [enteringIds, setEnteringIds] = useState<Set<number>>(new Set());
-  const [exitingIds, setExitingIds] = useState<Set<number>>(new Set());
-
-  useEffect(() => {
-    const nextIds = passengers.map((passenger) => passenger.id);
-    const nextPassengerMap = new Map(passengers.map((passenger) => [passenger.id, passenger]));
-    const previousIdSet = new Set(previousIds.current);
-    const nextIdSet = new Set(nextIds);
-    const entering = nextIds.filter((id) => !previousIdSet.has(id));
-    const exiting = previousIds.current.filter((id) => !nextIdSet.has(id));
-
-    if (entering.length === 0 && exiting.length === 0) {
-      previousIds.current = nextIds;
-      previousPassengerMap.current = nextPassengerMap;
-      return;
-    }
-
-    const mergedPassengerMap = new Map([...previousPassengerMap.current, ...nextPassengerMap]);
-    setDisplayPassengerMap(mergedPassengerMap);
-    setEnteringIds(new Set(entering));
-    setExitingIds(new Set(exiting));
-    setDisplayIds([...nextIds, ...exiting]);
-
-    const timeout = window.setTimeout(() => {
-      setDisplayIds(nextIds);
-      setDisplayPassengerMap(nextPassengerMap);
-      setEnteringIds(new Set());
-      setExitingIds(new Set());
-      previousIds.current = nextIds;
-      previousPassengerMap.current = nextPassengerMap;
-    }, 180);
-
-    return () => window.clearTimeout(timeout);
-  }, [passengers]);
+  const { displayIds, displayPassengerMap, enteringIds, exitingIds } = useEnterExitTransition(passengers);
 
   return (
     <Stack

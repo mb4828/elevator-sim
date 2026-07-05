@@ -11,6 +11,7 @@ import type { LoadedSimulation } from "./types";
 
 export default function App() {
   const [sim, setSim] = useState<LoadedSimulation | null>(null);
+  const [loadedFileName, setLoadedFileName] = useState("");
   const [loadError, setLoadError] = useState("");
   const lastTick = sim ? sim.frames.length - 1 : 0;
 
@@ -35,11 +36,15 @@ export default function App() {
       try {
         const parsed = parseSimulation(JSON.parse(String(reader.result)));
         setSim(parsed);
+        setLoadedFileName(file.name);
         reset();
         setLoadError("");
       } catch (error) {
         setLoadError(error instanceof Error ? error.message : "Could not load simulation file.");
       }
+    };
+    reader.onerror = () => {
+      setLoadError(`Could not read ${file.name}.`);
     };
     reader.readAsText(file);
   };
@@ -51,6 +56,7 @@ export default function App() {
           <SimulationToolbar
             lastTick={lastTick}
             loaded={Boolean(sim)}
+            loadedFileName={loadedFileName}
             playbackRate={playbackRate}
             tick={tick}
             onFileLoad={handleFileLoad}
@@ -61,6 +67,8 @@ export default function App() {
             onStepStart={stepStart}
             onStepEnd={stepEnd}
           />
+
+          {loadError && <Alert severity="error">{loadError}</Alert>}
 
           {sim && frame && stats ? (
             <>
@@ -97,7 +105,6 @@ export default function App() {
                 <Typography color="text.secondary">
                   The viewer runs entirely in the browser and derives all stats from the loaded frames.
                 </Typography>
-                {loadError && <Alert severity="error">{loadError}</Alert>}
               </Stack>
             </Paper>
           )}

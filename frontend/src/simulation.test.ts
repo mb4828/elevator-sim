@@ -65,7 +65,7 @@ describe("buildJourneys", () => {
       boardTime: 1,
       completeTime: 2,
       waitTime: 1,
-      rideTime: 2,
+      totalTime: 2,
       start: 0,
       dest: 3,
     });
@@ -74,7 +74,7 @@ describe("buildJourneys", () => {
       boardTime: 2,
       completeTime: 3,
       waitTime: 1,
-      rideTime: 2,
+      totalTime: 2,
       start: 1,
       dest: 0,
     });
@@ -90,7 +90,7 @@ describe("buildJourneys", () => {
       boardTime: null,
       completeTime: null,
       waitTime: null,
-      rideTime: null,
+      totalTime: null,
     });
   });
 });
@@ -107,7 +107,7 @@ describe("getStats", () => {
     expect(stats.transported).toBe(0);
     expect(stats.peakQueue).toBe(2);
     expect(stats.waitSummary).toBe("1.00/1.00/1.00");
-    expect(stats.rideSummary).toBe("n/a");
+    expect(stats.totalSummary).toBe("n/a");
   });
 
   it("reports final counts once every passenger has completed", () => {
@@ -119,6 +119,6 @@ describe("getStats", () => {
     expect(stats.riding).toBe(0);
     expect(stats.waiting).toBe(0);
     expect(stats.waitSummary).toBe("1.00/1.00/1.00");
-    expect(stats.rideSummary).toBe("2.00/2.00/2.00");
+    expect(stats.totalSummary).toBe("2.00/2.00/2.00");
   });
 });

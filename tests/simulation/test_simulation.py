@@ -109,6 +109,13 @@ class DwellStrategy(ElevatorStrategy):
         ]
 
 
+class IdleStrategy(ElevatorStrategy):
+    """Test strategy that never assigns work, leaving passengers waiting forever."""
+
+    def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
+        return []
+
+
 def test_run_completes_single_passenger_trip() -> None:
     """Simulation releases, picks up, moves, drops off, and records metrics."""
     passenger_source = StaticPassengerSource((Passenger(id=1, request_time=0, start_floor=1, destination_floor=3),))
@@ -374,6 +381,58 @@ def test_duplicate_stop_floors_are_collapsed() -> None:
     assert snapshot.elevators[0].target_floors == (3, 2)
 
 
+def test_run_raises_when_exceeding_max_ticks() -> None:
+    """Simulation guards against strategies that never finish the workload."""
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=0, capacity=1)],
+        strategy=IdleStrategy(),
+        passenger_source=StaticPassengerSource((Passenger(id=1, request_time=0, start_floor=1, destination_floor=2),)),
+    )
+
+    with pytest.raises(RuntimeError, match="exceeded 5 ticks"):
+        simulation.run(max_ticks=5)
+
+
+def test_simulation_rejects_duplicate_elevator_ids() -> None:
+    """Simulation rejects configurations where two elevators share an ID."""
+    with pytest.raises(ValueError, match="elevator IDs must be unique"):
+        Simulation(
+            floors=3,
+            elevators=[Elevator(id=1, current_floor=0, capacity=1), Elevator(id=1, current_floor=1, capacity=1)],
+            strategy=IdleStrategy(),
+            passenger_source=StaticPassengerSource(()),
+        )
+
+
+def test_simulation_rejects_single_floor_building() -> None:
+    """Simulation rejects buildings with fewer than two floors."""
+    with pytest.raises(ValueError, match="floors must be at least 2"):
+        Simulation(
+            floors=1,
+            elevators=[Elevator(id=1, current_floor=0, capacity=1)],
+            strategy=IdleStrategy(),
+            passenger_source=StaticPassengerSource(()),
+        )
+
+
+def test_release_rejects_duplicate_passenger_ids() -> None:
+    """Simulation rejects workloads that release the same passenger ID twice."""
+    duplicate_passengers = (
+        Passenger(id=1, request_time=0, start_floor=0, destination_floor=1),
+        Passenger(id=1, request_time=0, start_floor=1, destination_floor=2),
+    )
+    simulation = Simulation(
+        floors=3,
+        elevators=[Elevator(id=1, current_floor=0, capacity=1)],
+        strategy=IdleStrategy(),
+        passenger_source=StaticPassengerSource(duplicate_passengers),
+    )
+
+    with pytest.raises(ValueError, match="duplicate passenger ID"):
+        simulation.step()
+
+
 def test_loading_boards_only_passengers_travelling_in_onward_direction() -> None:
     """An up-bound stop boards only up-bound passengers; opposite-direction ones stay waiting."""
     up_passenger = Passenger(id=1, request_time=0, start_floor=5, destination_floor=6)
@@ -386,12 +445,15 @@ def test_loading_boards_only_passengers_travelling_in_onward_direction() -> None
         passenger_source=StaticPassengerSource((up_passenger, down_passenger)),
     )
 
-    simulation.step()  # move 4 -> 5 (arrive, stopping)
-    simulation.step()  # stopping -> loading
+    arrived = simulation.step()  # move 4 -> 5 (arrive, stopping)
+    loading = simulation.step()  # stopping -> loading
     snapshot = simulation.step()  # loading boards only the up-bound passenger
 
+    assert arrived.elevators[0].direction == Direction.UP
+    assert loading.elevators[0].direction == Direction.UP
     boarded = {passenger.id: passenger.status for passenger in snapshot.passengers}
     assert boarded[1] == PassengerStatus.RIDING
     assert boarded[2] == PassengerStatus.WAITING
+    assert snapshot.elevators[0].direction == Direction.UP
     assert snapshot.elevators[0].passenger_count == 1
     assert 2 in snapshot.elevators[0].assigned_passenger_ids

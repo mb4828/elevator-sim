@@ -8,6 +8,7 @@ export function parseSimulation(value: unknown): LoadedSimulation {
   return {
     ...value,
     journeys: buildJourneys(value),
+    peakQueueByTick: buildPeakQueueByTick(value),
   };
 }
 
@@ -21,7 +22,7 @@ export function buildJourneys(sim: OutputFile): JourneyMap {
         boardTime: null,
         completeTime: null,
         waitTime: null,
-        rideTime: null,
+        totalTime: null,
         start: passenger.start_floor,
         dest: passenger.destination_floor,
       },
@@ -42,50 +43,61 @@ export function buildJourneys(sim: OutputFile): JourneyMap {
   }
 
   for (const journey of Object.values(journeys)) {
-    if (lastSeen[journey.id] !== undefined) {
-      journey.completeTime = lastSeen[journey.id];
+    const lastSeenTime = lastSeen[journey.id];
+    if (lastSeenTime !== undefined) {
+      journey.completeTime = lastSeenTime;
     }
     if (journey.boardTime !== null) {
       journey.waitTime = journey.boardTime - journey.requestTime;
     }
     if (journey.completeTime !== null) {
-      journey.rideTime = journey.completeTime - journey.requestTime;
+      journey.totalTime = journey.completeTime - journey.requestTime;
     }
   }
 
   return journeys;
 }
 
+export function buildPeakQueueByTick(sim: OutputFile): number[] {
+  const peaks: number[] = [];
+  let peak = 0;
+
+  for (const frame of sim.frames) {
+    const waiting = (frame.passengers ?? []).filter((passenger) => passenger.status === "waiting").length;
+    peak = Math.max(peak, waiting);
+    peaks.push(peak);
+  }
+
+  return peaks;
+}
+
 export function getStats(sim: LoadedSimulation, tick: number): Stats {
   const frame = sim.frames[tick];
+  if (!frame) {
+    throw new Error(`No frame recorded for tick ${tick}.`);
+  }
   const activePassengers = frame.passengers ?? [];
   const waiting = activePassengers.filter((passenger) => passenger.status === "waiting").length;
   const riding = activePassengers.filter((passenger) => passenger.status === "riding").length;
-  const peakQueue = sim.frames
-    .slice(0, tick + 1)
-    .reduce(
-      (peak, currentFrame) =>
-        Math.max(peak, (currentFrame.passengers ?? []).filter((passenger) => passenger.status === "waiting").length),
-      0,
-    );
+  const peakQueue = sim.peakQueueByTick[tick] ?? 0;
   const journeys = Object.values(sim.journeys);
   const boardedWaits = journeys
     .filter((journey) => journey.boardTime !== null && journey.boardTime < frame.time)
     .map((journey) => journey.waitTime)
     .filter((value): value is number => value !== null);
-  const completedRides = journeys
+  const completedTotals = journeys
     .filter((journey) => journey.completeTime !== null && journey.completeTime < frame.time)
-    .map((journey) => journey.rideTime)
+    .map((journey) => journey.totalTime)
     .filter((value): value is number => value !== null);
 
   return {
     tick: frame.time,
-    transported: completedRides.length,
+    transported: completedTotals.length,
     riding,
     waiting,
     peakQueue,
     waitSummary: summarize(boardedWaits),
-    rideSummary: summarize(completedRides),
+    totalSummary: summarize(completedTotals),
   };
 }
 

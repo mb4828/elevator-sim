@@ -41,12 +41,13 @@ def state_log_to_dict(state_log: tuple[SimulationSnapshot, ...]) -> dict[str, An
 
 def _frame_to_dict(snapshot: SimulationSnapshot) -> dict[str, Any]:
     """Convert a snapshot into one compact animation frame."""
+    assigned_elevator_by_passenger_id = _assigned_elevator_by_passenger_id(snapshot.elevators)
     return {
         "time": snapshot.time,
         "complete": snapshot.complete,
         "elevators": [_elevator_frame_to_dict(elevator) for elevator in snapshot.elevators],
         "passengers": [
-            _passenger_frame_to_dict(passenger)
+            _passenger_frame_to_dict(passenger, assigned_elevator_by_passenger_id)
             for passenger in snapshot.passengers
             if passenger.status in VISIBLE_PASSENGER_STATUSES
         ],
@@ -89,13 +90,22 @@ def _elevator_frame_to_dict(elevator: ElevatorSnapshot) -> dict[str, Any]:
         "direction": elevator.direction.value,
         "phase": elevator.service_phase.value,
         "passenger_count": elevator.passenger_count,
+        "target_floor": elevator.target_floors[0] if elevator.target_floors else None,
     }
 
 
-def _passenger_frame_to_dict(passenger: PassengerSnapshot) -> dict[str, Any]:
+def _assigned_elevator_by_passenger_id(elevators: tuple[ElevatorSnapshot, ...]) -> dict[int, int]:
+    """Return the current elevator assignment for each waiting passenger."""
+    return {passenger_id: elevator.id for elevator in elevators for passenger_id in elevator.assigned_passenger_ids}
+
+
+def _passenger_frame_to_dict(
+    passenger: PassengerSnapshot,
+    assigned_elevator_by_passenger_id: dict[int, int],
+) -> dict[str, Any]:
     """Convert per-frame passenger state into primitive JSON values."""
     return {
         "id": passenger.id,
         "status": passenger.status.value,
-        "elevator_id": passenger.elevator_id,
+        "elevator_id": passenger.elevator_id or assigned_elevator_by_passenger_id.get(passenger.id),
     }

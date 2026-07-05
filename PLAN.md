@@ -74,7 +74,7 @@ elevator_sim/
 │   ├── __init__.py
 │   ├── base.py
 │   ├── collective_control.py
-│   └── nearest_car.py
+│   └── nearest_car_same_direction.py
 └── workload/
     ├── __init__.py
     ├── comparison.py
@@ -275,7 +275,7 @@ Strategies decide. The simulation validates and enforces.
 
 The project contains placeholders only:
 
-- `elevator_sim/strategies/nearest_car.py`
+- `elevator_sim/strategies/nearest_car_same_direction.py`
 - `elevator_sim/strategies/collective_control.py`
 
 ---

@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Building from './Building';
-import type { Frame, LoadedSimulation } from '../types';
+import type { Frame, FrameElevator, LoadedSimulation } from '../types';
 
 function sampleSim(): LoadedSimulation {
   return {
@@ -10,10 +10,18 @@ function sampleSim(): LoadedSimulation {
     passengers: [{ id: 1, request_time: 0, start_floor: 2, destination_floor: 5 }],
     frames: [],
     journeys: {},
+    peakQueueByTick: [],
   };
 }
 
-const idleElevator = { id: 1, floor: 0, direction: 'idle' as const, phase: 'moving', passenger_count: 0 };
+const idleElevator: FrameElevator = {
+  id: 1,
+  floor: 0,
+  direction: 'idle',
+  phase: 'moving',
+  passenger_count: 0,
+  target_floor: null,
+};
 
 function frameWithWaitingPassenger(): Frame {
   return {
@@ -41,6 +49,23 @@ describe('Building', () => {
     render(<Building frame={frameWithWaitingPassenger()} sim={sampleSim()} />);
 
     expect(screen.getByLabelText('#1 to 5 [-]')).toBeInTheDocument();
+  });
+
+  it('renders riding passengers inside their elevator and skips unknown IDs', () => {
+    const frame: Frame = {
+      time: 1,
+      complete: false,
+      elevators: [{ ...idleElevator, passenger_count: 1 }],
+      passengers: [
+        { id: 1, status: 'riding', elevator_id: 1 },
+        { id: 99, status: 'riding', elevator_id: 1 },
+      ],
+    };
+
+    render(<Building frame={frame} sim={sampleSim()} />);
+
+    expect(screen.getByLabelText('#1 to 5 [1]')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^#99/)).not.toBeInTheDocument();
   });
 
   describe('jumping back to the start of the timeline', () => {

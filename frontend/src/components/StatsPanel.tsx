@@ -27,7 +27,7 @@ export default function StatsPanel({ lastTick, stats }: Props) {
     { color: 'success', label: 'Complete', value: stats.transported },
     { label: 'Peak queue', value: stats.peakQueue },
     { label: 'Wait min/avg/max', value: stats.waitSummary },
-    { label: 'Ride min/avg/max', value: stats.rideSummary },
+    { label: 'Total min/avg/max', value: stats.totalSummary },
   ];
 
   return (
@@ -38,7 +38,7 @@ export default function StatsPanel({ lastTick, stats }: Props) {
             Live Stats
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Current tick summary
+            Tick by tick summary
           </Typography>
         </Box>
         <List disablePadding>

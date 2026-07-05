@@ -12,11 +12,12 @@ def apply_elevator_events(elevators: list[Elevator], passengers: dict[int, Passe
 def apply_elevator_event(elevator: Elevator, passengers: dict[int, Passenger], time: int) -> None:
     """Apply one movement or service event to an elevator."""
     if elevator.service_phase == ElevatorServicePhase.STOPPING:
-        elevator.direction = Direction.IDLE
+        update_direction_from_next_stop(elevator)
         advance_service_phase(elevator, passengers)
     elif elevator.service_phase == ElevatorServicePhase.UNLOADING:
         unload_passengers(elevator, time)
         if has_loading_passengers(elevator, passengers):
+            update_direction_from_next_stop(elevator)
             elevator.service_phase = ElevatorServicePhase.LOADING
         else:
             resume_movement(elevator)
@@ -40,9 +41,8 @@ def advance_service_phase(elevator: Elevator, passengers: dict[int, Passenger]) 
 def resume_movement(elevator: Elevator) -> None:
     """Return to moving if a further stop is queued, otherwise go idle."""
     remove_current_stop(elevator)
-    elevator.service_phase = (
-        ElevatorServicePhase.MOVING if elevator.target_floors else ElevatorServicePhase.IDLE
-    )
+    update_direction_from_next_stop(elevator)
+    elevator.service_phase = ElevatorServicePhase.MOVING if elevator.target_floors else ElevatorServicePhase.IDLE
 
 
 def move_toward_next_stop(elevator: Elevator) -> None:
@@ -55,7 +55,7 @@ def move_toward_next_stop(elevator: Elevator) -> None:
     elevator.service_phase = ElevatorServicePhase.MOVING
     next_stop = elevator.target_floors[0]
     if next_stop == elevator.current_floor:
-        elevator.direction = Direction.IDLE
+        update_direction_from_next_stop(elevator)
         elevator.service_phase = ElevatorServicePhase.STOPPING
     elif next_stop > elevator.current_floor:
         elevator.current_floor += 1
@@ -110,7 +110,7 @@ def load_passengers(elevator: Elevator, passengers: dict[int, Passenger], time: 
     If the elevator is full, passengers waiting at this floor remain waiting
     and are unassigned so a future strategy decision can send another elevator.
     """
-    onward = onward_direction(elevator)
+    onward = next_stop_direction(elevator)
     for passenger_id in sorted(elevator.assigned_passenger_ids.copy()):
         passenger = passengers[passenger_id]
         if passenger.status != PassengerStatus.WAITING or passenger.start_floor != elevator.current_floor:
@@ -127,8 +127,13 @@ def load_passengers(elevator: Elevator, passengers: dict[int, Passenger], time: 
         elevator.assigned_passenger_ids.remove(passenger_id)
 
 
-def onward_direction(elevator: Elevator) -> Direction:
-    """Return the direction the elevator will travel after servicing the current floor."""
+def update_direction_from_next_stop(elevator: Elevator) -> None:
+    """Set direction from the next queued stop after the current floor."""
+    elevator.direction = next_stop_direction(elevator)
+
+
+def next_stop_direction(elevator: Elevator) -> Direction:
+    """Return the direction toward the next queued stop after the current floor."""
     future_stops = [floor for floor in elevator.target_floors if floor != elevator.current_floor]
     if not future_stops:
         return Direction.IDLE

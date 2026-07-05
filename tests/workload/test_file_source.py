@@ -11,10 +11,7 @@ def test_file_source_loads_passengers_from_csv(tmp_path: Path) -> None:
     """File source converts CSV rows into scheduled passengers."""
     input_file = tmp_path / "workload.csv"
     input_file.write_text(
-        "time,id,source,dest\n"
-        "0,passenger1,1,51\n"
-        "0,passenger2,1,37\n"
-        "10,passenger3,20,1\n",
+        "time,id,source,dest\n0,passenger1,1,51\n0,passenger2,1,37\n10,passenger3,20,1\n",
         encoding="utf-8",
     )
 
@@ -22,8 +19,7 @@ def test_file_source_loads_passengers_from_csv(tmp_path: Path) -> None:
 
     assert [passenger.id for passenger in source.passengers] == [1, 2, 3]
     passenger_routes = [
-        (passenger.request_time, passenger.start_floor, passenger.destination_floor)
-        for passenger in source.passengers
+        (passenger.request_time, passenger.start_floor, passenger.destination_floor) for passenger in source.passengers
     ]
     assert passenger_routes == [
         (0, 1, 51),
@@ -41,6 +37,45 @@ def test_file_source_rejects_invalid_header(tmp_path: Path) -> None:
     input_file.write_text("time,id,start,dest\n0,passenger1,1,2\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="time,id,source,dest"):
+        FileSource(input_file)
+
+
+def test_file_source_accepts_plain_integer_ids(tmp_path: Path) -> None:
+    """File source accepts purely numeric passenger IDs without a label prefix."""
+    input_file = tmp_path / "workload.csv"
+    input_file.write_text("time,id,source,dest\n0,7,1,2\n", encoding="utf-8")
+
+    source = FileSource(input_file)
+
+    assert [passenger.id for passenger in source.passengers] == [7]
+
+
+def test_file_source_rejects_empty_file(tmp_path: Path) -> None:
+    """File source rejects a workload file with no header row."""
+    input_file = tmp_path / "workload.csv"
+    input_file.write_text("", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="is empty"):
+        FileSource(input_file)
+
+
+def test_file_source_with_header_only_is_immediately_exhausted(tmp_path: Path) -> None:
+    """File source with no passenger rows produces an empty, exhausted workload."""
+    input_file = tmp_path / "workload.csv"
+    input_file.write_text("time,id,source,dest\n", encoding="utf-8")
+
+    source = FileSource(input_file)
+
+    assert source.passengers == ()
+    assert source.is_exhausted(0)
+
+
+def test_file_source_rejects_non_integer_fields(tmp_path: Path) -> None:
+    """File source reports the offending field and row for non-integer values."""
+    input_file = tmp_path / "workload.csv"
+    input_file.write_text("time,id,source,dest\n0,passenger1,x,2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="source must be an integer on row 2"):
         FileSource(input_file)
 
 

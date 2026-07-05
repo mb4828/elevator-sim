@@ -2,6 +2,8 @@
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
+![screenshot.png](screenshot.png)
+
 See [`frontend/`](frontend/) for the React app used to visualize the JSON output produced by the Python simulation
 script.
 
@@ -13,8 +15,9 @@ script.
 
 - Make simulation time based and simulate elevator speed, acceleration, and deceleration; simulate passenger loading and unloading times more realistically
 - Allow for testing of different elevator configurations, number of elevators, capacity, etc. simultaneously
+- Allow for testing of multiple passenger input files simultaneously
 
-Estimated project time: <!-- project-time:start -->10h 16m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->10h 50m<!-- project-time:end -->
 
 &copy; Copyright 2026 Matt Brauner
 
@@ -22,7 +25,7 @@ Estimated project time: <!-- project-time:start -->10h 16m<!-- project-time:end 
 
 ```bash
 uv sync
-git config core.hooksPath .githooks  # for project time auto-update
+git config core.hooksPath .githooks  # for black formatting and project time pre-commit hooks
 ```
 
 ## Run Tests
@@ -35,14 +38,6 @@ The test command prints coverage and fails if total coverage drops below 80%.
 
 ## Run A Strategy
 
-The required runtime configuration is:
-
-- `--floors`
-- `--elevators`
-- `--capacity`
-- `--input-file`
-- `--strategy`
-
 Run one strategy by passing its module name under `elevator_sim.strategies`:
 
 ```bash
@@ -50,35 +45,33 @@ uv run python main.py \
   --floors 10 \
   --elevators 2 \
   --capacity 6 \
-  --input-file sample_input.csv \
-  --strategy nearest_car
+  --input-file ./sample_data/sample_input.csv \
+  --strategy nearest_car_same_direction
 ```
-
-Required workload arguments include `--input-file` and at least one `--strategy`. Optional runtime arguments include
-`--start-floor`, `--max-ticks`, and `--output-dir`.
-
-Floors are zero-based. For example, `--floors 10` creates floors `0` through `9`, and `--start-floor` defaults to `0`.
 The simulator reads passengers from a CSV file with this exact header:
 `time,id,source,dest`. Passenger IDs may be positive integers or labels ending in digits, such as `passenger1`.
 
-Completed strategy runs also write compact JSON visualization logs to the current directory by default. Each log stores
+Completed strategy runs also write JSON logs to the current directory by default. Each log stores
 static elevator and passenger metadata once, plus per-tick animation frames. Use `--output-dir` to choose a different
 output directory.
 
 ## Compare Strategies
 
-Pass multiple `--strategy` values to compare strategies against the same input workload. Each strategy receives fresh
-elevator and passenger objects.
+Pass multiple `--strategy` values to compare strategies against the same input workload:
 
 ```bash
 uv run python main.py \
   --floors 10 \
   --elevators 2 \
   --capacity 6 \
-  --input-file sample_input.csv \
+  --input-file ./sample_data/sample_input.csv \
+  --strategy round_robin \
   --strategy nearest_car \
-  --strategy another_strategy \
+  --strategy nearest_car_same_direction \
+  --strategy minimum_cost
 ```
+
+Each strategy produces a `log.json` file with results.
 
 ## Implement A Strategy
 

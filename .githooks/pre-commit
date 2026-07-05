@@ -8,6 +8,27 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+# Block the commit if any staged Python file is not black-formatted, so
+# formatting problems never reach CI.
+staged_python_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.py')
+if [ -n "$staged_python_files" ]; then
+  # shellcheck disable=SC2086
+  if ! uv run black --check --quiet $staged_python_files; then
+    echo "black would reformat the staged files above. Run 'uv run black .' and re-stage." >&2
+    exit 1
+  fi
+fi
+
+# Lint staged frontend TypeScript so type-unsafe or rule-breaking code never
+# reaches CI.
+staged_frontend_files=$(git diff --cached --name-only --diff-filter=ACMR -- 'frontend/src/*.ts' 'frontend/src/*.tsx' 'frontend/src/**/*.ts' 'frontend/src/**/*.tsx')
+if [ -n "$staged_frontend_files" ]; then
+  if ! yarn --cwd frontend --silent lint; then
+    echo "eslint found problems in frontend/src. Fix them and re-stage." >&2
+    exit 1
+  fi
+fi
+
 if ! git diff --quiet -- README.md; then
   echo "README.md has unstaged changes. Stage or stash them before committing." >&2
   exit 1

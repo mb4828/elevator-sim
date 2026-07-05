@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type PlaybackRate = 1 | 2 | null;
 
@@ -24,6 +24,11 @@ export interface Playback {
 export function usePlayback(lastTick: number, enabled: boolean): Playback {
   const [tick, setTick] = useState(0);
   const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(null);
+  const tickRef = useRef(0);
+
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
 
   const play = useCallback((rate: 1 | 2) => setPlaybackRate(rate), []);
   const pause = useCallback(() => setPlaybackRate(null), []);
@@ -63,14 +68,16 @@ export function usePlayback(lastTick: number, enabled: boolean): Playback {
   useEffect(() => {
     if (!enabled || !playbackRate) return undefined;
 
+    // The interval callback advances the cursor and pauses at the end of the
+    // timeline. Both state updates happen here, in event-style code, so the
+    // setTick updater stays pure.
     const interval = window.setInterval(() => {
-      setTick((value) => {
-        const nextTick = Math.min(lastTick, value + 1);
-        if (nextTick >= lastTick) {
-          setPlaybackRate(null);
-        }
-        return nextTick;
-      });
+      const nextTick = Math.min(lastTick, tickRef.current + 1);
+      tickRef.current = nextTick;
+      setTick(nextTick);
+      if (nextTick >= lastTick) {
+        setPlaybackRate(null);
+      }
     }, 1000 / playbackRate);
 
     return () => window.clearInterval(interval);

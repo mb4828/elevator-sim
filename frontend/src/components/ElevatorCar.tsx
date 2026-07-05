@@ -1,8 +1,8 @@
-import { alpha, Box, Paper, Theme, Tooltip, Typography } from '@mui/material';
+import { Box, Paper, Theme, Tooltip, Typography } from '@mui/material';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { PlayArrow } from '@mui/icons-material';
-import { useEffect, useRef, useState } from 'react';
-import type { FrameElevator, PassengerDefinition } from '../types';
+import type { Direction, FrameElevator, PassengerDefinition } from '../types';
+import { useEnterExitTransition } from '../hooks/useEnterExitTransition';
 import { DirectionalPersonIcon, passengerEnter, passengerExit, passengerTooltip } from './PassengerIcon';
 
 export default function ElevatorCar({
@@ -48,7 +48,7 @@ export default function ElevatorCar({
         willChange: 'top, transform',
       }}
     >
-      <DirectionIndicator direction={elevator.direction} />
+      <DirectionIndicator direction={elevator.direction} targetFloor={elevator.target_floor} />
       <ElevatorPassengerIcons passengers={passengers} assignedElevatorById={assignedElevatorById} />
       <Typography
         variant="caption"
@@ -99,48 +99,10 @@ function ElevatorPassengerIcons({
   passengers: PassengerDefinition[];
   assignedElevatorById: Map<number, number | null | undefined>;
 }) {
-  const initialPassengerMap = new Map(passengers.map((passenger) => [passenger.id, passenger]));
-  const previousIds = useRef(passengers.map((passenger) => passenger.id));
-  const previousPassengerMap = useRef(initialPassengerMap);
-  const [displayIds, setDisplayIds] = useState(previousIds.current);
-  const [displayPassengerMap, setDisplayPassengerMap] = useState(initialPassengerMap);
-  const [enteringIds, setEnteringIds] = useState<Set<number>>(new Set());
-  const [exitingIds, setExitingIds] = useState<Set<number>>(new Set());
+  const { displayIds, displayPassengerMap, enteringIds, exitingIds } = useEnterExitTransition(passengers);
   const visibleCount = Math.max(1, displayIds.length);
   const iconSize = Math.max(12, Math.min(20, 58 / visibleCount + 8));
   const iconOverlap = visibleCount > 1 ? -Math.max(0, (iconSize * visibleCount - 58) / (visibleCount - 1)) : 0;
-
-  useEffect(() => {
-    const nextIds = passengers.map((passenger) => passenger.id);
-    const nextPassengerMap = new Map(passengers.map((passenger) => [passenger.id, passenger]));
-    const previousIdSet = new Set(previousIds.current);
-    const nextIdSet = new Set(nextIds);
-    const entering = nextIds.filter((id) => !previousIdSet.has(id));
-    const exiting = previousIds.current.filter((id) => !nextIdSet.has(id));
-
-    if (entering.length === 0 && exiting.length === 0) {
-      previousIds.current = nextIds;
-      previousPassengerMap.current = nextPassengerMap;
-      return;
-    }
-
-    const mergedPassengerMap = new Map([...previousPassengerMap.current, ...nextPassengerMap]);
-    setDisplayPassengerMap(mergedPassengerMap);
-    setDisplayIds([...nextIds, ...exiting]);
-    setEnteringIds(new Set(entering));
-    setExitingIds(new Set(exiting));
-
-    const timeout = window.setTimeout(() => {
-      setDisplayIds(nextIds);
-      setDisplayPassengerMap(nextPassengerMap);
-      setEnteringIds(new Set());
-      setExitingIds(new Set());
-      previousIds.current = nextIds;
-      previousPassengerMap.current = nextPassengerMap;
-    }, 180);
-
-    return () => window.clearTimeout(timeout);
-  }, [passengers]);
 
   return (
     <Box
@@ -185,14 +147,36 @@ function ElevatorPassengerIcons({
   );
 }
 
-function DirectionIndicator({ direction }: { direction: string }) {
-  if (direction === 'up') {
-    return <PlayArrow color="success" fontSize="medium" style={{ rotate: '-90deg' }} />;
+function DirectionIndicator({ direction, targetFloor }: { direction: Direction; targetFloor: number | null }) {
+  if (direction !== 'up' && direction !== 'down') {
+    return <RemoveIcon color="disabled" fontSize="small" />;
   }
 
-  if (direction === 'down') {
-    return <PlayArrow color="error" fontSize="medium" style={{ rotate: '90deg' }} />;
-  }
-
-  return <RemoveIcon color="disabled" fontSize="small" />;
+  return (
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <PlayArrow
+        color={direction === 'up' ? 'success' : 'error'}
+        fontSize="large"
+        style={{ rotate: direction === 'up' ? '-90deg' : '90deg', position: 'relative', top: '-8px' }}
+      />
+      {targetFloor != null && (
+        <Box
+          component="span"
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 9,
+            lineHeight: 1,
+            fontWeight: 700,
+            color: 'common.white',
+          }}
+        >
+          {targetFloor}
+        </Box>
+      )}
+    </Box>
+  );
 }

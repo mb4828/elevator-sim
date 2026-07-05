@@ -21,7 +21,6 @@ from elevator_sim.workload.comparison import (
     build_performance_analysis_table,
     build_summary_statistics_table,
     compare_strategies,
-    create_workload_source,
 )
 
 
@@ -35,8 +34,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         floors=args.floors,
         input_file=args.input_file,
     )
-    passenger_source = create_workload_source(workload_config)
-
     strategies = {name: _load_strategy_factory(name) for name in args.strategy}
     simulation_start = perf_counter()
     results = compare_strategies(
@@ -48,7 +45,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     simulation_runtime_seconds = perf_counter() - simulation_start
     _write_state_logs(args.output_dir, results)
 
-    _print_results(len(passenger_source.passengers), results, simulation_runtime_seconds)
+    _print_results(len(results[0].result.passengers), results, simulation_runtime_seconds)
     return 0
 
 
@@ -114,10 +111,7 @@ def _load_strategy_factory(name: str) -> type[ElevatorStrategy]:
     ]
     if len(strategy_classes) != 1:
         raise ValueError(f"strategy module must define exactly one ElevatorStrategy subclass: {module_name}")
-    strategy_class = strategy_classes[0]
-    if not issubclass(strategy_class, ElevatorStrategy):
-        raise TypeError(f"{module_name}.{strategy_class.__name__} is not an ElevatorStrategy")
-    return strategy_class
+    return strategy_classes[0]
 
 
 def _create_elevators(count: int, capacity: int, start_floor: int) -> list[Elevator]:

@@ -34,7 +34,7 @@ def test_main_prints_summary_and_performance_tables(
             "--max-ticks",
             "80",
             "--strategy",
-            "nearest_car",
+            "nearest_car_same_direction",
         ]
     )
 
@@ -42,7 +42,6 @@ def test_main_prints_summary_and_performance_tables(
 
     assert exit_code == 0
     assert "Simulation runtime: 0.250000 seconds" in output
-    assert "Generated passengers:" not in output
     assert "Summary Statistics" in output
     assert "Wait Time" in output
     assert "Total Time" in output
@@ -56,7 +55,7 @@ def test_main_prints_summary_and_performance_tables(
     assert "Wait Time Avg" in output
     assert "Wait Time P90" in output
 
-    state_log_path = tmp_path / "nearest_car_log.json"
+    state_log_path = tmp_path / "nearest_car_same_direction_log.json"
     state_log = json.loads(state_log_path.read_text(encoding="utf-8"))
     assert state_log["version"] == 1
     assert state_log["frames"][0]["elevators"][0]["floor"] == 0
@@ -86,21 +85,21 @@ def test_main_uses_input_file_for_workload(
             "--max-ticks",
             "20",
             "--strategy",
-            "nearest_car",
+            "nearest_car_same_direction",
         ]
     )
 
     capsys.readouterr()
 
     assert exit_code == 0
-    state_log = json.loads((tmp_path / "nearest_car_log.json").read_text(encoding="utf-8"))
+    state_log = json.loads((tmp_path / "nearest_car_same_direction_log.json").read_text(encoding="utf-8"))
     assert len(state_log["passengers"]) == 1
 
 
 def test_main_requires_building_configuration() -> None:
     """CLI fails when a required building configuration argument is missing."""
     with pytest.raises(SystemExit):
-        main(["--floors", "5", "--input-file", "workload.csv", "--strategy", "nearest_car"])
+        main(["--floors", "5", "--input-file", "workload.csv", "--strategy", "nearest_car_same_direction"])
 
 
 def test_main_requires_strategy_and_input_file() -> None:
