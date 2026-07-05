@@ -1,5 +1,6 @@
-"""Passenger workload source for the elevator simulation."""
+"""Passenger workload sources for the elevator simulation."""
 
-from elevator_sim.workload.passenger_source import PassengerSource
+from elevator_sim.workload.base import PassengerSource
+from elevator_sim.workload.file_source import FileSource
 
-__all__ = ["PassengerSource"]
+__all__ = ["FileSource", "PassengerSource"]

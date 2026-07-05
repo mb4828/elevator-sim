@@ -27,8 +27,8 @@ class ElevatorServicePhase(str, Enum):
     IDLE = "idle"
     MOVING = "moving"
     STOPPING = "stopping"
-    DROPPING_OFF = "dropping_off"
-    PICKING_UP = "picking_up"
+    UNLOADING = "unloading"
+    LOADING = "loading"
 
 
 @dataclass

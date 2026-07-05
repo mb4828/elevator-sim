@@ -36,14 +36,14 @@ export function buildJourneys(sim: OutputFile): JourneyMap {
 
       lastSeen[passenger.id] = frame.time;
       if (passenger.status === "riding" && journey.boardTime === null) {
-        journey.boardTime = frame.time;
+        journey.boardTime = frame.time - 1;
       }
     }
   }
 
   for (const journey of Object.values(journeys)) {
     if (lastSeen[journey.id] !== undefined) {
-      journey.completeTime = lastSeen[journey.id] + 1;
+      journey.completeTime = lastSeen[journey.id];
     }
     if (journey.boardTime !== null) {
       journey.waitTime = journey.boardTime - journey.requestTime;
@@ -70,11 +70,11 @@ export function getStats(sim: LoadedSimulation, tick: number): Stats {
     );
   const journeys = Object.values(sim.journeys);
   const boardedWaits = journeys
-    .filter((journey) => journey.boardTime !== null && journey.boardTime <= frame.time)
+    .filter((journey) => journey.boardTime !== null && journey.boardTime < frame.time)
     .map((journey) => journey.waitTime)
     .filter((value): value is number => value !== null);
   const completedRides = journeys
-    .filter((journey) => journey.completeTime !== null && journey.completeTime <= frame.time)
+    .filter((journey) => journey.completeTime !== null && journey.completeTime < frame.time)
     .map((journey) => journey.rideTime)
     .filter((value): value is number => value !== null);
 

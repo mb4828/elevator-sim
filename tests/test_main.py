@@ -9,17 +9,6 @@ from rich_argparse import RichHelpFormatter
 from main import _build_parser, main
 
 
-def test_main_runs_with_only_required_building_configuration(capsys: pytest.CaptureFixture[str]) -> None:
-    """CLI accepts only required building configuration and skips comparison without strategies."""
-    exit_code = main(["--floors", "5", "--elevators", "2", "--capacity", "4"])
-
-    output = capsys.readouterr().out
-
-    assert exit_code == 0
-    assert "Generated passengers:" in output
-    assert "No strategies provided" in output
-
-
 def test_main_prints_summary_and_performance_tables(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -27,6 +16,10 @@ def test_main_prints_summary_and_performance_tables(
 ) -> None:
     """CLI prints comparison tables and writes a per-strategy state log."""
     monkeypatch.chdir(tmp_path)
+    perf_counter_values = iter((100.0, 100.25))
+    monkeypatch.setattr("main.perf_counter", lambda: next(perf_counter_values))
+    input_file = tmp_path / "workload.csv"
+    input_file.write_text("time,id,source,dest\n0,passenger1,0,1\n", encoding="utf-8")
 
     exit_code = main(
         [
@@ -36,10 +29,8 @@ def test_main_prints_summary_and_performance_tables(
             "1",
             "--capacity",
             "4",
-            "--duration",
-            "1",
-            "--passengers",
-            "1",
+            "--input-file",
+            str(input_file),
             "--max-ticks",
             "80",
             "--strategy",
@@ -50,6 +41,8 @@ def test_main_prints_summary_and_performance_tables(
     output = capsys.readouterr().out
 
     assert exit_code == 0
+    assert "Simulation runtime: 0.250000 seconds" in output
+    assert "Generated passengers:" not in output
     assert "Summary Statistics" in output
     assert "Wait Time" in output
     assert "Total Time" in output
@@ -59,7 +52,6 @@ def test_main_prints_summary_and_performance_tables(
     assert "Peak Queue" in output
     assert "Performance Analysis" in output
     assert "Total Ticks" in output
-    assert "Avg Passengers/Tick" in output
     assert "Utilization %" in output
     assert "Wait Time Avg" in output
     assert "Wait Time P90" in output
@@ -71,10 +63,50 @@ def test_main_prints_summary_and_performance_tables(
     assert state_log["frames"][-1]["complete"] is True
 
 
+def test_main_uses_input_file_for_workload(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI can run a strategy against a CSV workload."""
+    monkeypatch.chdir(tmp_path)
+    input_file = tmp_path / "workload.csv"
+    input_file.write_text("time,id,source,dest\n0,passenger1,0,1\n", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--floors",
+            "2",
+            "--elevators",
+            "1",
+            "--capacity",
+            "4",
+            "--input-file",
+            str(input_file),
+            "--max-ticks",
+            "20",
+            "--strategy",
+            "nearest_car",
+        ]
+    )
+
+    capsys.readouterr()
+
+    assert exit_code == 0
+    state_log = json.loads((tmp_path / "nearest_car_log.json").read_text(encoding="utf-8"))
+    assert len(state_log["passengers"]) == 1
+
+
 def test_main_requires_building_configuration() -> None:
     """CLI fails when a required building configuration argument is missing."""
     with pytest.raises(SystemExit):
-        main(["--floors", "5", "--elevators", "2"])
+        main(["--floors", "5", "--input-file", "workload.csv", "--strategy", "nearest_car"])
+
+
+def test_main_requires_strategy_and_input_file() -> None:
+    """CLI fails unless both strategy and input-file arguments are provided."""
+    with pytest.raises(SystemExit):
+        main(["--floors", "5", "--elevators", "2", "--capacity", "4"])
 
 
 def test_main_help_groups_required_and_optional_options(capsys: pytest.CaptureFixture[str]) -> None:

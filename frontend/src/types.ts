@@ -1,5 +1,5 @@
 export type Direction = "idle" | "up" | "down";
-export type ElevatorPhase = "idle" | "moving" | "stopping" | "picking_up" | "dropping_off" | string;
+export type ElevatorPhase = "idle" | "moving" | "stopping" | "loading" | "unloading" | string;
 export type PassengerStatus = "waiting" | "riding";
 
 export interface PassengerDefinition {

@@ -115,10 +115,6 @@ export default function Building({ frame, sim }: Props) {
             ))}
           </Box>
         </Box>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Chip color="success" size="small" label="Going Up" />
-          <Chip color="error" size="small" label="Going Down" />
-        </Stack>
       </Stack>
     </Paper>
   );

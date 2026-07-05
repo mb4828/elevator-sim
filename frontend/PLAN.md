@@ -31,7 +31,7 @@ Top level:
 
 - **passengers** (static definitions): `{ id, request_time, start_floor, destination_floor }`
 - **frames** (one per tick): `{ time, complete, elevators:[…], passengers:[…] }`
-  - each frame `elevator`: `{ id, floor, direction: idle|up|down, phase: moving|stopping|picking_up|dropping_off, passenger_count }`
+  - each frame `elevator`: `{ id, floor, direction: idle|up|down, phase: moving|stopping|loading|unloading, passenger_count }`
   - each frame `passenger`: `{ id, status: waiting|riding, elevator_id }`
 
 **Key insight:** a frame's `passengers` array only lists passengers who are

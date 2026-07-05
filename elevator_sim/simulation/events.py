@@ -14,14 +14,14 @@ def apply_elevator_event(elevator: Elevator, passengers: dict[int, Passenger], t
     if elevator.service_phase == ElevatorServicePhase.STOPPING:
         elevator.direction = Direction.IDLE
         advance_service_phase(elevator, passengers)
-    elif elevator.service_phase == ElevatorServicePhase.DROPPING_OFF:
-        drop_off_passengers(elevator, time)
-        if has_pickup_passengers(elevator, passengers):
-            elevator.service_phase = ElevatorServicePhase.PICKING_UP
+    elif elevator.service_phase == ElevatorServicePhase.UNLOADING:
+        unload_passengers(elevator, time)
+        if has_loading_passengers(elevator, passengers):
+            elevator.service_phase = ElevatorServicePhase.LOADING
         else:
             resume_movement(elevator)
-    elif elevator.service_phase == ElevatorServicePhase.PICKING_UP:
-        pick_up_passengers(elevator, passengers, time)
+    elif elevator.service_phase == ElevatorServicePhase.LOADING:
+        load_passengers(elevator, passengers, time)
         resume_movement(elevator)
     else:
         move_toward_next_stop(elevator)
@@ -29,10 +29,10 @@ def apply_elevator_event(elevator: Elevator, passengers: dict[int, Passenger], t
 
 def advance_service_phase(elevator: Elevator, passengers: dict[int, Passenger]) -> None:
     """Move from stopping into the next service phase that has work."""
-    if has_dropoff_passengers(elevator):
-        elevator.service_phase = ElevatorServicePhase.DROPPING_OFF
-    elif has_pickup_passengers(elevator, passengers):
-        elevator.service_phase = ElevatorServicePhase.PICKING_UP
+    if has_unloading_passengers(elevator):
+        elevator.service_phase = ElevatorServicePhase.UNLOADING
+    elif has_loading_passengers(elevator, passengers):
+        elevator.service_phase = ElevatorServicePhase.LOADING
     else:
         resume_movement(elevator)
 
@@ -73,12 +73,12 @@ def start_stop_if_arrived(elevator: Elevator, next_stop: int) -> None:
         elevator.service_phase = ElevatorServicePhase.STOPPING
 
 
-def has_dropoff_passengers(elevator: Elevator) -> bool:
+def has_unloading_passengers(elevator: Elevator) -> bool:
     """Return whether onboard passengers need to exit at the current floor."""
     return any(passenger.destination_floor == elevator.current_floor for passenger in elevator.passengers)
 
 
-def has_pickup_passengers(elevator: Elevator, passengers: dict[int, Passenger]) -> bool:
+def has_loading_passengers(elevator: Elevator, passengers: dict[int, Passenger]) -> bool:
     """Return whether assigned waiting passengers are available at the current floor."""
     return any(
         passenger.status == PassengerStatus.WAITING and passenger.start_floor == elevator.current_floor
@@ -87,8 +87,8 @@ def has_pickup_passengers(elevator: Elevator, passengers: dict[int, Passenger]) 
     )
 
 
-def drop_off_passengers(elevator: Elevator, time: int) -> None:
-    """Drop off onboard passengers at the elevator's current floor."""
+def unload_passengers(elevator: Elevator, time: int) -> None:
+    """Unload onboard passengers at the elevator's current floor."""
     remaining_passengers = []
     for passenger in elevator.passengers:
         if passenger.destination_floor == elevator.current_floor:
@@ -100,8 +100,8 @@ def drop_off_passengers(elevator: Elevator, time: int) -> None:
     elevator.passengers = remaining_passengers
 
 
-def pick_up_passengers(elevator: Elevator, passengers: dict[int, Passenger], time: int) -> None:
-    """Pick up assigned waiting passengers at the elevator's current floor.
+def load_passengers(elevator: Elevator, passengers: dict[int, Passenger], time: int) -> None:
+    """Load assigned waiting passengers at the elevator's current floor.
 
     Only passengers travelling in the elevator's onward direction board; an
     opposite-direction passenger stays assigned and waiting so it can board on a
@@ -115,7 +115,7 @@ def pick_up_passengers(elevator: Elevator, passengers: dict[int, Passenger], tim
         passenger = passengers[passenger_id]
         if passenger.status != PassengerStatus.WAITING or passenger.start_floor != elevator.current_floor:
             continue
-        if onward != Direction.IDLE and passenger.direction != onward:
+        if onward not in (Direction.IDLE, passenger.direction):
             continue
         if elevator.available_capacity <= 0:
             elevator.assigned_passenger_ids.remove(passenger_id)

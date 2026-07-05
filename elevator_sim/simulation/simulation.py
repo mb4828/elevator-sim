@@ -8,7 +8,7 @@ from elevator_sim.simulation.decisions import apply_decisions
 from elevator_sim.simulation.events import apply_elevator_events
 from elevator_sim.simulation.snapshots import build_snapshot
 from elevator_sim.strategies.base import ElevatorStrategy
-from elevator_sim.workload.passenger_source import PassengerSource
+from elevator_sim.workload.base import PassengerSource
 
 
 class Simulation:
@@ -95,8 +95,8 @@ class Simulation:
         """Return whether an elevator still has queued or in-progress stop work."""
         servicing_phases = (
             ElevatorServicePhase.STOPPING,
-            ElevatorServicePhase.DROPPING_OFF,
-            ElevatorServicePhase.PICKING_UP,
+            ElevatorServicePhase.UNLOADING,
+            ElevatorServicePhase.LOADING,
         )
         return bool(elevator.target_floors) or elevator.service_phase in servicing_phases
 

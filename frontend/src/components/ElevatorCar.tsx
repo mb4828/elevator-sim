@@ -65,7 +65,7 @@ export default function ElevatorCar({
       >
         {elevator.phase.replace(/_/g, ' ')}
       </Typography>
-      <ElevatorDoors open={elevator.phase === 'picking_up' || elevator.phase === 'dropping_off'} />
+      <ElevatorDoors open={elevator.phase === 'loading' || elevator.phase === 'unloading'} />
     </Paper>
   );
 }
@@ -78,8 +78,6 @@ function ElevatorDoors({ open }: { open: boolean }) {
     [side]: 0,
     width: '50%',
     bgcolor: theme.palette.grey[200],
-    borderLeft: side === 'right' ? `1px solid ${theme.palette.grey[300]}` : undefined,
-    borderRight: side === 'left' ? `1px solid ${theme.palette.grey[300]}` : undefined,
     pointerEvents: 'none' as const,
     transition: 'transform 260ms ease-in-out',
     transform: open ? `translateX(${side === 'left' ? '-' : ''}100%)` : 'translateX(0)',

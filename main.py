@@ -7,6 +7,7 @@ import logging
 import re
 from collections.abc import Sequence
 from pathlib import Path
+from time import perf_counter
 
 from rich.console import Console
 from rich_argparse import RichHelpFormatter
@@ -20,7 +21,7 @@ from elevator_sim.workload.comparison import (
     build_performance_analysis_table,
     build_summary_statistics_table,
     compare_strategies,
-    create_passenger_source,
+    create_workload_source,
 )
 
 
@@ -32,34 +33,30 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     workload_config = WorkloadConfig(
         floors=args.floors,
-        passengers=args.passengers,
-        duration=args.duration,
-        seed=args.seed,
+        input_file=args.input_file,
     )
-    passenger_source = create_passenger_source(workload_config)
+    passenger_source = create_workload_source(workload_config)
 
     strategies = {name: _load_strategy_factory(name) for name in args.strategy}
-    if not strategies:
-        _print_no_strategy_result(len(passenger_source.passengers))
-        return 0
-
+    simulation_start = perf_counter()
     results = compare_strategies(
         workload_config=workload_config,
         elevator_factory=lambda: _create_elevators(args.elevators, args.capacity, args.start_floor),
         strategies=strategies,
         max_ticks=args.max_ticks,
     )
+    simulation_runtime_seconds = perf_counter() - simulation_start
     _write_state_logs(args.output_dir, results)
 
-    _print_results(len(passenger_source.passengers), results)
+    _print_results(len(passenger_source.passengers), results, simulation_runtime_seconds)
     return 0
 
 
 def _build_parser() -> argparse.ArgumentParser:
     """Create the command-line argument parser."""
     parser = argparse.ArgumentParser(
-        description="🛗 Elevator Simulator - Compare elevator scheduling strategies.",
-        epilog="©️ Copyright 2026 Matt Brauner",
+        description="Elevator Simulator - Compare elevator scheduling strategies.",
+        epilog="(c) Copyright 2026 Matt Brauner",
         formatter_class=RichHelpFormatter,
     )
 
@@ -73,30 +70,24 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Maximum passenger capacity per elevator.",
     )
-
-    optional_options = parser.add_argument_group("optional")
-    optional_options.add_argument(
+    parser.add_argument(
         "--strategy",
         metavar="NAME",
         action="append",
-        default=[],
+        required=True,
         help="Strategy module name under elevator_sim.strategies.",
     )
+    parser.add_argument(
+        "--input-file",
+        type=Path,
+        metavar="PATH",
+        required=True,
+        help="CSV workload file with header: time,id,source,dest.",
+    )
+
+    optional_options = parser.add_argument_group("optional")
     optional_options.add_argument(
         "--start-floor", type=int, metavar="INT", default=0, help="Starting floor for every elevator. [Default: 0]"
-    )
-    optional_options.add_argument(
-        "--duration", type=int, metavar="INT", default=200, help="Random workload duration in ticks. [Default: 200]"
-    )
-    optional_options.add_argument(
-        "--seed", type=int, metavar="INT", default=42, help="Random workload seed. [Default: 42]"
-    )
-    optional_options.add_argument(
-        "--passengers",
-        type=int,
-        metavar="INT",
-        default=50,
-        help="Number of random passengers to generate. [Default: 50]",
     )
     optional_options.add_argument(
         "--max-ticks", type=int, metavar="INT", default=1_000, help="Maximum ticks per simulation. [Default: 1,000]"
@@ -138,16 +129,14 @@ def _create_elevators(count: int, capacity: int, start_floor: int) -> list[Eleva
     ]
 
 
-def _print_no_strategy_result(workload_size: int) -> None:
-    """Print workload information when no strategies are provided."""
-    print(f"Generated passengers: {workload_size}")
-    print("No strategies provided; pass --strategy to run a comparison.")
-
-
-def _print_results(workload_size: int, results: list[StrategyComparisonResult]) -> None:
+def _print_results(
+    workload_size: int,
+    results: list[StrategyComparisonResult],
+    simulation_runtime_seconds: float,
+) -> None:
     """Print comparison metrics for completed strategy runs."""
     console = Console(width=160)
-    console.print(f"Generated passengers: {workload_size}")
+    console.print(f"Simulation runtime: {simulation_runtime_seconds:.6f} seconds")
     console.print(build_summary_statistics_table(workload_size, results))
     console.print(build_performance_analysis_table(results))
 

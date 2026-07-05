@@ -12,7 +12,6 @@ from elevator_sim.core.models import (
 )
 from elevator_sim.simulation import Simulation
 from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy
-from elevator_sim.workload.passenger_source import PassengerSource
 
 
 class StaticPassengerSource:
@@ -31,7 +30,7 @@ class StaticPassengerSource:
 
 
 class DirectPassengerStrategy(ElevatorStrategy):
-    """Test strategy that assigns one passenger and follows pickup/drop-off floors."""
+    """Test strategy that assigns one passenger and follows boarding/destination floors."""
 
     def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
         elevator = state.elevators[0]
@@ -112,7 +111,7 @@ class DwellStrategy(ElevatorStrategy):
 
 def test_run_completes_single_passenger_trip() -> None:
     """Simulation releases, picks up, moves, drops off, and records metrics."""
-    passenger_source = PassengerSource(floors=5, passengers=1, duration=1, seed=7)
+    passenger_source = StaticPassengerSource((Passenger(id=1, request_time=0, start_floor=1, destination_floor=3),))
     simulation = Simulation(
         floors=5,
         elevators=[Elevator(id=1, current_floor=1, capacity=4)],
@@ -189,7 +188,7 @@ def test_step_keeps_elevator_idle_at_current_boundary_stop() -> None:
         floors=2,
         elevators=[Elevator(id=1, current_floor=1, capacity=1)],
         strategy=BoundaryStrategy(),
-        passenger_source=PassengerSource(floors=2, passengers=0, duration=0, seed=1),
+        passenger_source=StaticPassengerSource(()),
     )
 
     snapshot = simulation.step()
@@ -204,7 +203,7 @@ def test_unknown_elevator_decision_raises_error() -> None:
         floors=3,
         elevators=[Elevator(id=1, current_floor=1, capacity=1)],
         strategy=InvalidElevatorStrategy(),
-        passenger_source=PassengerSource(floors=3, passengers=1, duration=1, seed=1),
+        passenger_source=StaticPassengerSource((Passenger(id=1, request_time=0, start_floor=1, destination_floor=2),)),
     )
 
     with pytest.raises(ValueError, match="unknown elevator ID"):
@@ -229,8 +228,8 @@ def test_elevator_skips_intermediate_floor_without_stopping() -> None:
     assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.MOVING
 
 
-def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
-    """Elevator service consumes stop, drop-off, and pickup ticks after arrival."""
+def test_stop_queue_uses_separate_stop_unloading_and_loading_ticks() -> None:
+    """Elevator service consumes stop, unloading, and loading ticks after arrival."""
     onboard_passenger = Passenger(
         id=1,
         request_time=0,
@@ -251,25 +250,25 @@ def test_stop_queue_uses_separate_stop_dropoff_and_pickup_ticks() -> None:
 
     arrived = simulation.step()
     stopped = simulation.step()
-    dropped_off = simulation.step()
-    picked_up = simulation.step()
+    unloaded = simulation.step()
+    loaded = simulation.step()
     moved_again = simulation.step()
 
     assert arrived.elevators[0].current_floor == 2
     assert arrived.elevators[0].service_phase == ElevatorServicePhase.STOPPING
     assert stopped.elevators[0].passenger_count == 1
     assert stopped.passengers[0].status == PassengerStatus.WAITING
-    assert stopped.elevators[0].service_phase == ElevatorServicePhase.DROPPING_OFF
-    assert dropped_off.elevators[0].passenger_count == 0
-    assert dropped_off.passengers[0].status == PassengerStatus.WAITING
-    assert dropped_off.elevators[0].service_phase == ElevatorServicePhase.PICKING_UP
-    assert picked_up.passengers[0].status == PassengerStatus.RIDING
-    assert picked_up.elevators[0].current_floor == 2
+    assert stopped.elevators[0].service_phase == ElevatorServicePhase.UNLOADING
+    assert unloaded.elevators[0].passenger_count == 0
+    assert unloaded.passengers[0].status == PassengerStatus.WAITING
+    assert unloaded.elevators[0].service_phase == ElevatorServicePhase.LOADING
+    assert loaded.passengers[0].status == PassengerStatus.RIDING
+    assert loaded.elevators[0].current_floor == 2
     assert moved_again.elevators[0].current_floor == 3
 
 
-def test_dropoff_stop_skips_pickup_when_no_passengers_are_waiting() -> None:
-    """Elevator goes idle after drop-off when no assigned passenger can board and no stop is queued."""
+def test_unloading_stop_skips_loading_when_no_passengers_are_waiting() -> None:
+    """Elevator goes idle after unloading when no assigned passenger can board and no stop is queued."""
     onboard_passenger = Passenger(
         id=1,
         request_time=0,
@@ -289,16 +288,16 @@ def test_dropoff_stop_skips_pickup_when_no_passengers_are_waiting() -> None:
 
     arrived = simulation.step()
     stopped = simulation.step()
-    dropped_off = simulation.step()
+    unloaded = simulation.step()
 
     assert arrived.elevators[0].service_phase == ElevatorServicePhase.STOPPING
-    assert stopped.elevators[0].service_phase == ElevatorServicePhase.DROPPING_OFF
-    assert dropped_off.elevators[0].passenger_count == 0
-    assert dropped_off.elevators[0].service_phase == ElevatorServicePhase.IDLE
+    assert stopped.elevators[0].service_phase == ElevatorServicePhase.UNLOADING
+    assert unloaded.elevators[0].passenger_count == 0
+    assert unloaded.elevators[0].service_phase == ElevatorServicePhase.IDLE
 
 
-def test_current_floor_stop_waits_before_pickup() -> None:
-    """Stop at the current floor starts service timing instead of picking up immediately."""
+def test_current_floor_stop_waits_before_loading() -> None:
+    """Stop at the current floor starts service timing instead of loading immediately."""
     passenger = Passenger(id=1, request_time=0, start_floor=1, destination_floor=2)
     simulation = Simulation(
         floors=3,
@@ -314,13 +313,13 @@ def test_current_floor_stop_waits_before_pickup() -> None:
     assert first_snapshot.passengers[0].status == PassengerStatus.WAITING
     assert first_snapshot.elevators[0].service_phase == ElevatorServicePhase.STOPPING
     assert second_snapshot.passengers[0].status == PassengerStatus.WAITING
-    assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.PICKING_UP
+    assert second_snapshot.elevators[0].service_phase == ElevatorServicePhase.LOADING
     assert third_snapshot.passengers[0].status == PassengerStatus.RIDING
     assert third_snapshot.elevators[0].service_phase == ElevatorServicePhase.IDLE
 
 
 def test_passenger_who_cannot_fit_is_unassigned_and_stays_waiting() -> None:
-    """Passenger remains waiting and becomes unassigned if the elevator is full at pickup."""
+    """Passenger remains waiting and becomes unassigned if the elevator is full while loading."""
     onboard_passenger = Passenger(
         id=1,
         request_time=0,
@@ -375,7 +374,7 @@ def test_duplicate_stop_floors_are_collapsed() -> None:
     assert snapshot.elevators[0].target_floors == (3, 2)
 
 
-def test_pickup_boards_only_passengers_travelling_in_onward_direction() -> None:
+def test_loading_boards_only_passengers_travelling_in_onward_direction() -> None:
     """An up-bound stop boards only up-bound passengers; opposite-direction ones stay waiting."""
     up_passenger = Passenger(id=1, request_time=0, start_floor=5, destination_floor=6)
     down_passenger = Passenger(id=2, request_time=0, start_floor=5, destination_floor=0)
@@ -388,8 +387,8 @@ def test_pickup_boards_only_passengers_travelling_in_onward_direction() -> None:
     )
 
     simulation.step()  # move 4 -> 5 (arrive, stopping)
-    simulation.step()  # stopping -> picking_up
-    snapshot = simulation.step()  # picking_up boards only the up-bound passenger
+    simulation.step()  # stopping -> loading
+    snapshot = simulation.step()  # loading boards only the up-bound passenger
 
     boarded = {passenger.id: passenger.status for passenger in snapshot.passengers}
     assert boarded[1] == PassengerStatus.RIDING

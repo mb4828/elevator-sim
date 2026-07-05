@@ -62,19 +62,19 @@ describe("buildJourneys", () => {
 
     expect(journeys[1]).toMatchObject({
       requestTime: 0,
-      boardTime: 2,
-      completeTime: 3,
-      waitTime: 2,
-      rideTime: 3,
+      boardTime: 1,
+      completeTime: 2,
+      waitTime: 1,
+      rideTime: 2,
       start: 0,
       dest: 3,
     });
     expect(journeys[2]).toMatchObject({
       requestTime: 1,
-      boardTime: 3,
-      completeTime: 4,
-      waitTime: 2,
-      rideTime: 3,
+      boardTime: 2,
+      completeTime: 3,
+      waitTime: 1,
+      rideTime: 2,
       start: 1,
       dest: 0,
     });
@@ -106,7 +106,7 @@ describe("getStats", () => {
     expect(stats.waiting).toBe(1);
     expect(stats.transported).toBe(0);
     expect(stats.peakQueue).toBe(2);
-    expect(stats.waitSummary).toBe("2.00/2.00/2.00");
+    expect(stats.waitSummary).toBe("1.00/1.00/1.00");
     expect(stats.rideSummary).toBe("n/a");
   });
 
@@ -118,7 +118,7 @@ describe("getStats", () => {
     expect(stats.transported).toBe(2);
     expect(stats.riding).toBe(0);
     expect(stats.waiting).toBe(0);
-    expect(stats.waitSummary).toBe("2.00/2.00/2.00");
-    expect(stats.rideSummary).toBe("3.00/3.00/3.00");
+    expect(stats.waitSummary).toBe("1.00/1.00/1.00");
+    expect(stats.rideSummary).toBe("2.00/2.00/2.00");
   });
 });
