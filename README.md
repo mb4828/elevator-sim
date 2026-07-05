@@ -1,4 +1,4 @@
-# Elevator Sim
+# Elevator Simulator
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
@@ -10,12 +10,21 @@ script.
 ### Assumptions / Simplifiactions / Tradeoffs
 
 - Simulation is tick based; elevators move at most 1 floor per tick; stopping, loading, and unloading require 1 tick each
+- Passengers come from an input file that is arbitrary and doesn't simulate real building traffic patterns
+- Passenger patience is infinite and passengers never leave the queue once they join
+- Electricity usage and other supply-side factors aren't taken into account besides utilization %
 
 ### What Could Be Improved
 
 - Make simulation time based and simulate elevator speed, acceleration, and deceleration; simulate passenger loading and unloading times more realistically
-- Allow for testing of different elevator configurations, number of elevators, capacity, etc. simultaneously
-- Allow for testing of multiple passenger input files simultaneously
+- Better passenger generation including simulations for start of day, lunch, end of day, and randomized traffic
+- Add passenger attrition for longer wait times
+- Incorporate supply-side factors to the performance analysis like electricity usage
+
+_Additionally:_
+- Allow for simultaneous testing of different elevator configurations, number of elevators, capacity, etc.
+- Allow for simultaneous testing of multiple passenger input files
+- Continue to refine the cost function for the minimum_cost strategy
 
 Estimated project time: <!-- project-time:start -->10h 30m<!-- project-time:end -->
 
