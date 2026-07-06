@@ -6,8 +6,8 @@ import StatsPanel from "./components/StatsPanel";
 import SimulationToolbar from "./components/SimulationToolbar";
 import { usePlayback } from "./hooks/usePlayback";
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
-import { getStats, parseSimulation } from "./simulation";
-import type { LoadedSimulation } from "./types";
+import { getStats, parseSimulation } from "./logic";
+import type { LoadedSimulation } from "./logic";
 
 export default function App() {
   const [sim, setSim] = useState<LoadedSimulation | null>(null);

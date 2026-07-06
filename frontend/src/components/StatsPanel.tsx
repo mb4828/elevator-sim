@@ -1,11 +1,16 @@
 import { keyframes } from '@emotion/react';
 import { Box, Chip, List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
 import type { ChipProps } from '@mui/material';
-import type { Stats } from '../types';
+import type { StatSummary, Stats } from '../logic';
 
 interface Props {
   lastTick: number;
   stats: Stats;
+}
+
+function formatSummary(summary: StatSummary | null): string {
+  if (!summary) return 'n/a';
+  return [summary.min, summary.avg, summary.max].map((value) => value.toFixed(2)).join('/');
 }
 
 const statValuePulse = keyframes`
@@ -26,8 +31,8 @@ export default function StatsPanel({ lastTick, stats }: Props) {
     { color: 'primary', label: 'Riding', value: stats.riding },
     { color: 'success', label: 'Complete', value: stats.transported },
     { label: 'Peak queue', value: stats.peakQueue },
-    { label: 'Wait min/avg/max', value: stats.waitSummary },
-    { label: 'Total min/avg/max', value: stats.totalSummary },
+    { label: 'Wait min/avg/max', value: formatSummary(stats.waitSummary) },
+    { label: 'Total min/avg/max', value: formatSummary(stats.totalSummary) },
   ];
 
   return (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PassengerDefinition } from "../types";
+import type { PassengerDefinition } from "../logic";
 
 export interface EnterExitTransition {
   /** IDs to render, including exiting ones until their animation finishes. */

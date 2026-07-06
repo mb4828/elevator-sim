@@ -1,6 +1,6 @@
 import { Box, Chip, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
-import type { LoadedSimulation } from '../types';
+import type { LoadedSimulation } from '../logic';
 
 interface Props {
   sim: LoadedSimulation;

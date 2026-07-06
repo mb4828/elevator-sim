@@ -1,7 +1,7 @@
 import { Box, Paper, Theme, Tooltip, Typography } from '@mui/material';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { PlayArrow } from '@mui/icons-material';
-import type { Direction, FrameElevator, PassengerDefinition } from '../types';
+import type { Direction, FrameElevator, PassengerDefinition } from '../logic';
 import { useEnterExitTransition } from '../hooks/useEnterExitTransition';
 import { DirectionalPersonIcon, passengerEnter, passengerExit, passengerTooltip } from './PassengerIcon';
 

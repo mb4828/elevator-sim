@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import StatsPanel from './StatsPanel';
-import type { Stats } from '../types';
+import type { Stats } from '../logic';
 
 const stats: Stats = {
   tick: 7,
@@ -9,8 +9,8 @@ const stats: Stats = {
   riding: 2,
   waiting: 4,
   peakQueue: 6,
-  waitSummary: '1.00/2.00/3.00',
-  totalSummary: '4.00/5.00/6.00',
+  waitSummary: { min: 1, avg: 2, max: 3 },
+  totalSummary: { min: 4, avg: 5, max: 6 },
 };
 
 describe('StatsPanel', () => {
@@ -31,5 +31,11 @@ describe('StatsPanel', () => {
     expect(screen.getByText('1.00/2.00/3.00')).toBeInTheDocument();
     expect(screen.getByText('Total min/avg/max')).toBeInTheDocument();
     expect(screen.getByText('4.00/5.00/6.00')).toBeInTheDocument();
+  });
+
+  it('renders n/a for summaries with no data yet', () => {
+    render(<StatsPanel lastTick={20} stats={{ ...stats, waitSummary: null, totalSummary: null }} />);
+
+    expect(screen.getAllByText('n/a')).toHaveLength(2);
   });
 });

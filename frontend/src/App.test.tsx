@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import App from './App';
-import type { OutputFile } from './types';
+import type { OutputFile } from './logic';
 
 vi.mock('@mui/x-charts/BarChart', () => ({
   BarChart: () => <div data-testid="bar-chart" />,

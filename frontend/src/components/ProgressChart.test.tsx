@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ProgressChart from './ProgressChart';
-import { parseSimulation } from '../simulation';
-import type { OutputFile } from '../types';
+import { parseSimulation } from '../logic';
+import type { OutputFile } from '../logic';
 
 interface BarChartStubProps {
   dataset?: Array<Record<string, unknown>>;

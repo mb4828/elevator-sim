@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Building from './Building';
-import type { Frame, FrameElevator, LoadedSimulation } from '../types';
+import type { FrameElevator, LoadedFrame, LoadedSimulation } from '../logic';
 
 function sampleSim(): LoadedSimulation {
   return {
@@ -23,7 +23,7 @@ const idleElevator: FrameElevator = {
   target_floor: null,
 };
 
-function frameWithWaitingPassenger(): Frame {
+function frameWithWaitingPassenger(): LoadedFrame {
   return {
     time: 5,
     complete: false,
@@ -32,7 +32,7 @@ function frameWithWaitingPassenger(): Frame {
   };
 }
 
-function emptyFrame(): Frame {
+function emptyFrame(): LoadedFrame {
   return { time: 0, complete: false, elevators: [idleElevator], passengers: [] };
 }
 
@@ -52,7 +52,7 @@ describe('Building', () => {
   });
 
   it('renders riding passengers inside their elevator and skips unknown IDs', () => {
-    const frame: Frame = {
+    const frame: LoadedFrame = {
       time: 1,
       complete: false,
       elevators: [{ ...idleElevator, passenger_count: 1 }],

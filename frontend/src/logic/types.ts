@@ -1,3 +1,10 @@
+// ---------------------------------------------------------------------------
+// Raw simulation file format
+//
+// These types mirror the JSON emitted by the backend simulator. Field names
+// are snake_case to match the file on disk.
+// ---------------------------------------------------------------------------
+
 export type Direction = "idle" | "up" | "down";
 export type ElevatorPhase = "idle" | "moving" | "stopping" | "loading" | "unloading";
 export type PassengerStatus = "waiting" | "riding";
@@ -45,6 +52,23 @@ export interface OutputFile {
   frames: Frame[];
 }
 
+// ---------------------------------------------------------------------------
+// Normalized and derived shapes
+//
+// parseSimulation normalizes the raw file (every frame is guaranteed a
+// passengers array) and attaches data derived from the frame history.
+// ---------------------------------------------------------------------------
+
+/** A frame whose optional fields have been filled in during parsing. */
+export interface LoadedFrame extends Frame {
+  passengers: FramePassenger[];
+}
+
+/** An OutputFile whose frames have all been normalized to LoadedFrame. */
+export interface NormalizedOutputFile extends OutputFile {
+  frames: LoadedFrame[];
+}
+
 export interface Journey {
   id: number;
   fullId: string;
@@ -59,10 +83,17 @@ export interface Journey {
 
 export type JourneyMap = Record<number, Journey>;
 
-export interface LoadedSimulation extends OutputFile {
+export interface LoadedSimulation extends NormalizedOutputFile {
   journeys: JourneyMap;
   /** Running maximum of waiting passengers, indexed by tick. */
   peakQueueByTick: number[];
+}
+
+/** Min/average/max of a set of durations, in ticks. Formatting is up to the UI. */
+export interface StatSummary {
+  min: number;
+  avg: number;
+  max: number;
 }
 
 export interface Stats {
@@ -71,6 +102,8 @@ export interface Stats {
   riding: number;
   waiting: number;
   peakQueue: number;
-  waitSummary: string;
-  totalSummary: string;
+  /** Wait durations of passengers who have visibly boarded, or null if none yet. */
+  waitSummary: StatSummary | null;
+  /** Total journey durations of delivered passengers, or null if none yet. */
+  totalSummary: StatSummary | null;
 }

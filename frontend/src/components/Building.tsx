@@ -1,22 +1,22 @@
 import { alpha, Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import type { Frame, LoadedSimulation, PassengerDefinition } from '../types';
+import type { LoadedFrame, LoadedSimulation, PassengerDefinition } from '../logic';
 import { useEnterExitTransition } from '../hooks/useEnterExitTransition';
 import ElevatorCar from './ElevatorCar';
 import { DirectionalPersonIcon, passengerEnter, passengerExit, passengerTooltip } from './PassengerIcon';
 
 interface Props {
-  frame: Frame;
+  frame: LoadedFrame;
   sim: LoadedSimulation;
 }
 
 export default function Building({ frame, sim }: Props) {
-  const activeById = new Map((frame.passengers ?? []).map((passenger) => [passenger.id, passenger]));
+  const activeById = new Map(frame.passengers.map((passenger) => [passenger.id, passenger]));
   const passengerById = new Map(sim.passengers.map((passenger) => [passenger.id, passenger]));
   const assignedElevatorById = new Map(
-    (frame.passengers ?? []).map((passenger) => [passenger.id, passenger.elevator_id]),
+    frame.passengers.map((passenger) => [passenger.id, passenger.elevator_id]),
   );
   const floors = Array.from({ length: sim.floors }, (_, index) => sim.floors - index - 1);
-  const elevators = frame.elevators ?? [];
+  const elevators = frame.elevators;
   const laneWidth = 92;
   const shaftWidth = Math.max(116, elevators.length * laneWidth);
 
@@ -103,7 +103,7 @@ export default function Building({ frame, sim }: Props) {
                 elevator={elevator}
                 index={index}
                 key={elevator.id}
-                passengers={(frame.passengers ?? [])
+                passengers={frame.passengers
                   .filter((passenger) => passenger.status === 'riding' && passenger.elevator_id === elevator.id)
                   .map((passenger) => passengerById.get(passenger.id))
                   .filter((passenger): passenger is PassengerDefinition => Boolean(passenger))}

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import ElevatorCar from './ElevatorCar';
-import type { FrameElevator, PassengerDefinition } from '../types';
+import type { FrameElevator, PassengerDefinition } from '../logic';
 
 function makeElevator(overrides: Partial<FrameElevator> = {}): FrameElevator {
   return {

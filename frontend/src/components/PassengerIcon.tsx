@@ -2,7 +2,7 @@ import { keyframes } from '@emotion/react';
 import { Box, SxProps, Theme } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import { forwardRef } from 'react';
-import type { PassengerDefinition } from '../types';
+import type { PassengerDefinition } from '../logic';
 
 export const passengerEnter = keyframes`
   from {
