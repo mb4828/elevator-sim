@@ -106,7 +106,7 @@ def test_plan_keeps_rider_destinations_in_stop_queue() -> None:
     decisions = MinimumCostStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (2,)
-    assert decisions[0].stop_floors == (6,)
+    assert decisions[0].stop_floors == (6, 9, 0)
 
 
 def test_plan_preserves_onward_rider_stop_while_unloading_current_floor() -> None:

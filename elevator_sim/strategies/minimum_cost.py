@@ -1,7 +1,13 @@
 """Minimum cost elevator assignment strategy."""
 
 from elevator_sim.core.models import Direction, ElevatorSnapshot, PassengerSnapshot, PassengerStatus, SimulationSnapshot
-from elevator_sim.strategies.base import ElevatorDecision, ElevatorStrategy, distance, is_ahead
+from elevator_sim.strategies.base import (
+    ElevatorDecision,
+    ElevatorStrategy,
+    RouteSimulation,
+    distance,
+    is_ahead,
+)
 
 
 class MinimumCostStrategy(ElevatorStrategy):
@@ -85,32 +91,24 @@ class MinimumCostStrategy(ElevatorStrategy):
         passenger_by_id: dict[int, PassengerSnapshot],
         assigned_passenger_ids: list[int],
     ) -> tuple[int, ...]:
-        """Return a rough service route for cost estimation."""
-        stop_queue = self._build_stop_queue(
-            elevator=elevator,
-            passengers=passengers,
-            passenger_by_id=passenger_by_id,
-            assigned_passenger_ids=assigned_passenger_ids,
-        )
-        remaining_stops = tuple(
+        """Return the stops the elevator would make to serve its riders and assigned pickups."""
+        rider_dropoff_floors = [
             passenger.destination_floor
             for passenger in passengers
             if passenger.status == PassengerStatus.RIDING and passenger.elevator_id == elevator.id
-        )
-        assigned_stops = tuple(
-            stop
+        ]
+        waiting_pickups = [
+            passenger_by_id[passenger_id]
             for passenger_id in assigned_passenger_ids
-            for stop in self._passenger_stops(passenger_by_id[passenger_id])
+            if passenger_by_id[passenger_id].status == PassengerStatus.WAITING
+        ]
+        simulation = RouteSimulation(
+            current_floor=elevator.current_floor,
+            direction=self._effective_direction(elevator),
+            dropoff_floors=rider_dropoff_floors,
+            waiting_pickups=waiting_pickups,
         )
-        return _dedupe_stops((*stop_queue, *remaining_stops, *assigned_stops))
-
-    def _passenger_stops(self, passenger: PassengerSnapshot) -> tuple[int, ...]:
-        """Return the pickup/dropoff stops still needed for one passenger."""
-        if passenger.status == PassengerStatus.WAITING:
-            return (passenger.start_floor, passenger.destination_floor)
-        if passenger.status == PassengerStatus.RIDING:
-            return (passenger.destination_floor,)
-        return ()
+        return simulation.route()
 
     def _direction_penalty(self, elevator: ElevatorSnapshot, passenger: PassengerSnapshot) -> int:
         """Penalize assigning against the elevator's current useful sweep."""
@@ -151,12 +149,3 @@ def _route_distance(current_floor: int, route: tuple[int, ...]) -> int:
         elapsed_distance += distance(previous_floor, floor)
         previous_floor = floor
     return elapsed_distance
-
-
-def _dedupe_stops(stops: tuple[int, ...]) -> tuple[int, ...]:
-    """Return stops in order with consecutive duplicates removed."""
-    deduped_stops: list[int] = []
-    for stop in stops:
-        if not deduped_stops or deduped_stops[-1] != stop:
-            deduped_stops.append(stop)
-    return tuple(deduped_stops)

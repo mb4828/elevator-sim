@@ -87,7 +87,7 @@ def test_plan_orders_stops_for_existing_riders_and_new_pickups() -> None:
     decisions = NearestCarSameDirectionStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (2,)
-    assert decisions[0].stop_floors == (7,)
+    assert decisions[0].stop_floors == (7, 5, 1)
 
 
 def test_plan_schedules_next_waiting_pickup_with_direction_hint() -> None:
@@ -103,7 +103,7 @@ def test_plan_schedules_next_waiting_pickup_with_direction_hint() -> None:
     decisions = NearestCarSameDirectionStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (1, 2)
-    assert decisions[0].stop_floors == (1, 9)
+    assert decisions[0].stop_floors == (1, 9, 5, 2)
 
 
 def test_plan_uses_simple_pickup_then_destination_queue_for_same_floor_pickups() -> None:
@@ -118,4 +118,4 @@ def test_plan_uses_simple_pickup_then_destination_queue_for_same_floor_pickups()
 
     decisions = NearestCarSameDirectionStrategy().plan(state)
 
-    assert decisions[0].stop_floors == (5, 6)
+    assert decisions[0].stop_floors == (5, 6, 5, 0)

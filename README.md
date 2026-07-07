@@ -26,7 +26,7 @@ _Additionally:_
 - Allow for simultaneous testing of multiple passenger input files
 - Continue to refine the cost function for the minimum_cost strategy
 
-Estimated project time: <!-- project-time:start -->11h 10m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->11h 52m<!-- project-time:end -->
 
 &copy; Copyright 2026 Matt Brauner
 

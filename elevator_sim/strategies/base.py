@@ -59,25 +59,27 @@ class ElevatorStrategy(ABC):
         passenger_by_id: dict[int, PassengerSnapshot],
         assigned_passenger_ids: list[int],
     ) -> tuple[int, ...]:
-        """Build the next actionable stop for current riders and assigned waiting passengers."""
-        rider_stops = tuple(
+        """Return the full route the elevator would follow to serve its riders and assigned pickups."""
+        rider_dropoff_floors = [
             passenger.destination_floor
             for passenger in passengers
             if passenger.status == PassengerStatus.RIDING and passenger.elevator_id == elevator.id
-        )
-        pickups: tuple[PassengerSnapshot, ...] = ()
+        ]
+        waiting_pickups: list[PassengerSnapshot] = []
         if elevator.passenger_count < elevator.capacity:
-            pickups = tuple(
+            waiting_pickups = [
                 passenger_by_id[passenger_id]
                 for passenger_id in assigned_passenger_ids
                 if passenger_by_id[passenger_id].status == PassengerStatus.WAITING
-            )
+            ]
 
-        planner = _StopPlanner(current_floor=elevator.current_floor, rider_stops=rider_stops, pickups=pickups)
-        direction = self._effective_direction(elevator)
-        if direction == Direction.IDLE:
-            return planner.idle_queue()
-        return planner.directional_queue(direction)
+        simulation = RouteSimulation(
+            current_floor=elevator.current_floor,
+            direction=self._effective_direction(elevator),
+            dropoff_floors=rider_dropoff_floors,
+            waiting_pickups=waiting_pickups,
+        )
+        return simulation.route()
 
     def _effective_direction(self, elevator: ElevatorSnapshot) -> Direction:
         """Return current direction, falling back to the direction of the next queued stop."""
@@ -95,156 +97,82 @@ class ElevatorStrategy(ABC):
         return _passenger_direction(passenger)
 
 
-@dataclass(frozen=True)
-class _StopPlanner:
-    """Chooses the next actionable stops for one elevator.
+@dataclass
+class RouteSimulation:
+    """Simulates the full sequence of stops one elevator would make to serve its work.
 
-    Works from the elevator's current floor, the destination floors of its
-    current riders, and the assigned waiting passengers it still has room for.
+    Movement follows a LOOK sweep: keep travelling in one direction while any
+    stop lies ahead, then reverse. At each floor the elevator drops off arriving
+    riders and boards waiting passengers travelling its way; reaching a pickup
+    floor adds that passenger's destination as a new dropoff. Opposite-direction
+    passengers board only once the elevator turns around, so it never stops for
+    them mid-sweep. Capacity is ignored; this produces a plan, not an exact schedule.
     """
 
     current_floor: int
-    rider_stops: tuple[int, ...]
-    pickups: tuple[PassengerSnapshot, ...]
+    direction: Direction
+    dropoff_floors: list[int]
+    waiting_pickups: list[PassengerSnapshot]
 
-    def directional_queue(self, direction: Direction) -> tuple[int, ...]:
-        """Return the next stop while preserving the current sweep direction."""
-        pickups_here = self._pickups_at_current_floor(direction)
-        if pickups_here:
-            return _pickup_stops(self.current_floor, pickups_here, direction, self.rider_stops)
-        if self.current_floor in self.rider_stops:
-            return self._queue_from_current_stop(
-                self._sweep_queue(direction) or self._reverse_queue(_opposite_direction(direction))
-            )
-        return self._sweep_queue(direction) or self._reverse_queue(_opposite_direction(direction))
+    def route(self) -> tuple[int, ...]:
+        """Return every floor the elevator would stop at, in visit order."""
+        stops: list[int] = []
+        while True:
+            if self._serve_current_floor():
+                stops.append(self.current_floor)
+            if not self._pending_stop_floors():
+                return tuple(stops)
+            self.current_floor = self._next_stop_floor()
 
-    def idle_queue(self) -> tuple[int, ...]:
-        """Return the next stop when the elevator has no current sweep direction."""
-        if self.current_floor in self.rider_stops:
-            return self._idle_queue_from_current_stop()
-        nearest_rider_stop = _nearest_floor(self.current_floor, self.rider_stops)
-        if nearest_rider_stop is not None:
-            return (nearest_rider_stop,)
-        pickups_here = self._pickups_at_current_floor()
-        if pickups_here:
-            return _pickup_stops(self.current_floor, pickups_here, _passenger_direction(pickups_here[0]))
-        return _stops_for_pickup(self._nearest_pickup())
+    def _serve_current_floor(self) -> bool:
+        """Drop off and board at the current floor, reporting whether the elevator stopped."""
+        stopped = self.current_floor in self.dropoff_floors
+        self.dropoff_floors = [floor for floor in self.dropoff_floors if floor != self.current_floor]
+        stopped = self._board(self._boardable_pickups_here()) or stopped
+        if not self._stops_ahead():
+            # Nothing remains ahead, so the elevator turns around here: board anyone
+            # still waiting rather than stranding opposite-direction passengers.
+            stopped = self._board(self._pickups_here()) or stopped
+        return stopped
 
-    def _sweep_queue(self, direction: Direction) -> tuple[int, ...]:
-        """Return the next actionable stop ahead in a direction, or () when nothing is ahead."""
-        next_rider_stop = _next_floor_in_direction(self.current_floor, self.rider_stops, direction)
-        next_pickup = self._next_pickup_ahead(direction)
-        if next_rider_stop is None:
-            return _stops_for_pickup(next_pickup)
-        if next_pickup is None:
-            return (next_rider_stop,)
-        if _is_before_or_same(next_rider_stop, next_pickup.start_floor, direction):
-            return (next_rider_stop,)
-        return _stops_for_pickup(next_pickup, self.rider_stops)
+    def _board(self, passengers: list[PassengerSnapshot]) -> bool:
+        """Board the given passengers, adding each destination as a new dropoff."""
+        for passenger in passengers:
+            self.waiting_pickups.remove(passenger)
+            self.dropoff_floors.append(passenger.destination_floor)
+        return bool(passengers)
 
-    def _reverse_queue(self, direction: Direction) -> tuple[int, ...]:
-        """Return the next stop after the original sweep direction is exhausted."""
-        next_rider_stop = _next_floor_in_direction(self.current_floor, self.rider_stops, direction)
-        next_pickup = self._nearest_pickup_traveling(direction)
-        if next_rider_stop is None:
-            return _stops_for_pickup(next_pickup)
-        if next_pickup is None:
-            return (next_rider_stop,)
-        if distance(self.current_floor, next_rider_stop) <= distance(self.current_floor, next_pickup.start_floor):
-            return (next_rider_stop,)
-        return _stops_for_pickup(next_pickup, self.rider_stops)
+    def _pickups_here(self) -> list[PassengerSnapshot]:
+        """Return every waiting pickup at the current floor."""
+        return [passenger for passenger in self.waiting_pickups if passenger.start_floor == self.current_floor]
 
-    def _pickups_at_current_floor(self, direction: Direction | None = None) -> tuple[PassengerSnapshot, ...]:
-        """Return pickups waiting at the current floor, optionally filtered by travel direction."""
-        return tuple(
-            passenger
-            for passenger in self.pickups
-            if passenger.start_floor == self.current_floor
-            and (direction is None or _passenger_direction(passenger) == direction)
-        )
+    def _boardable_pickups_here(self) -> list[PassengerSnapshot]:
+        """Return current-floor pickups travelling the elevator's current direction."""
+        if self.direction == Direction.IDLE:
+            return self._pickups_here()
+        return [passenger for passenger in self._pickups_here() if _passenger_direction(passenger) == self.direction]
 
-    def _next_pickup_ahead(self, direction: Direction) -> PassengerSnapshot | None:
-        """Return the closest pickup ahead of the elevator and traveling in a direction."""
-        candidates = [
-            passenger
-            for passenger in self.pickups
-            if _passenger_direction(passenger) == direction
-            and is_ahead(passenger.start_floor, self.current_floor, direction)
-        ]
-        if not candidates:
-            return None
-        return min(candidates, key=lambda passenger: distance(self.current_floor, passenger.start_floor))
+    def _next_stop_floor(self) -> int:
+        """Return the nearest pending stop, finishing the current sweep before reversing."""
+        if self.direction == Direction.IDLE:
+            nearest_stop = self._nearest_of(self._pending_stop_floors())
+            self.direction = Direction.UP if nearest_stop > self.current_floor else Direction.DOWN
+            return nearest_stop
+        if not self._stops_ahead():
+            self.direction = Direction.DOWN if self.direction == Direction.UP else Direction.UP
+        return self._nearest_of(self._stops_ahead())
 
-    def _nearest_pickup_traveling(self, direction: Direction) -> PassengerSnapshot | None:
-        """Return the closest pickup traveling in a direction, anywhere in the building."""
-        candidates = [passenger for passenger in self.pickups if _passenger_direction(passenger) == direction]
-        return _nearest_passenger(self.current_floor, candidates)
+    def _stops_ahead(self) -> list[int]:
+        """Return pending stop floors strictly ahead in the current direction."""
+        return [floor for floor in self._pending_stop_floors() if is_ahead(floor, self.current_floor, self.direction)]
 
-    def _nearest_pickup(self) -> PassengerSnapshot | None:
-        """Return the closest pickup in any travel direction."""
-        return _nearest_passenger(self.current_floor, list(self.pickups))
+    def _pending_stop_floors(self) -> list[int]:
+        """Return every floor that still needs a stop: dropoffs plus waiting pickups."""
+        return [*self.dropoff_floors, *(passenger.start_floor for passenger in self.waiting_pickups)]
 
-    def _idle_queue_from_current_stop(self) -> tuple[int, ...]:
-        """Return the current rider stop plus the next useful stop after it."""
-        remaining_rider_stops = tuple(floor for floor in self.rider_stops if floor != self.current_floor)
-        nearest_rider_stop = _nearest_floor(self.current_floor, remaining_rider_stops)
-        if nearest_rider_stop is not None:
-            return (self.current_floor, nearest_rider_stop)
-        pickups_here = self._pickups_at_current_floor()
-        if pickups_here:
-            return _pickup_stops(self.current_floor, pickups_here, _passenger_direction(pickups_here[0]))
-        return self._queue_from_current_stop(_stops_for_pickup(self._nearest_pickup()))
-
-    def _queue_from_current_stop(self, next_stops: tuple[int, ...]) -> tuple[int, ...]:
-        """Prefix the current service stop without duplicating it."""
-        if not next_stops:
-            return (self.current_floor,)
-        if next_stops[0] == self.current_floor:
-            return next_stops
-        return (self.current_floor, *next_stops)
-
-
-def _pickup_stops(
-    pickup_floor: int,
-    passengers: tuple[PassengerSnapshot, ...],
-    direction: Direction,
-    rider_stops: tuple[int, ...] = (),
-) -> tuple[int, ...]:
-    """Return a pickup stop plus one onward stop to preserve the boarding direction."""
-    onward_floors = (*rider_stops, *(passenger.destination_floor for passenger in passengers))
-    onward_stop = _next_floor_in_direction(pickup_floor, onward_floors, direction)
-    if onward_stop is None:
-        return (pickup_floor,)
-    return (pickup_floor, onward_stop)
-
-
-def _stops_for_pickup(passenger: PassengerSnapshot | None, rider_stops: tuple[int, ...] = ()) -> tuple[int, ...]:
-    """Return pickup stops for a single passenger, or () when there is no passenger."""
-    if passenger is None:
-        return ()
-    return _pickup_stops(passenger.start_floor, (passenger,), _passenger_direction(passenger), rider_stops)
-
-
-def _nearest_passenger(current_floor: int, passengers: list[PassengerSnapshot]) -> PassengerSnapshot | None:
-    """Return the passenger closest to a floor, breaking ties by passenger ID."""
-    if not passengers:
-        return None
-    return min(passengers, key=lambda passenger: (distance(current_floor, passenger.start_floor), passenger.id))
-
-
-def _next_floor_in_direction(current_floor: int, floors: tuple[int, ...], direction: Direction) -> int | None:
-    """Return the closest floor strictly ahead in a direction."""
-    candidates = [floor for floor in floors if is_ahead(floor, current_floor, direction)]
-    if not candidates:
-        return None
-    return min(candidates, key=lambda floor: distance(current_floor, floor))
-
-
-def _nearest_floor(current_floor: int, floors: tuple[int, ...]) -> int | None:
-    """Return the nearest floor from a list of floors."""
-    if not floors:
-        return None
-    return min(floors, key=lambda floor: distance(current_floor, floor))
+    def _nearest_of(self, floors: list[int]) -> int:
+        """Return the floor closest to the elevator's current position."""
+        return min(floors, key=lambda floor: distance(self.current_floor, floor))
 
 
 def _passenger_direction(passenger: PassengerSnapshot) -> Direction:
@@ -254,25 +182,11 @@ def _passenger_direction(passenger: PassengerSnapshot) -> Direction:
     return Direction.DOWN
 
 
-def _opposite_direction(direction: Direction) -> Direction:
-    """Return the opposite travel direction."""
-    if direction == Direction.UP:
-        return Direction.DOWN
-    return Direction.UP
-
-
 def is_ahead(floor: int, current_floor: int, direction: Direction) -> bool:
     """Return whether a floor is strictly ahead in a direction."""
     if direction == Direction.UP:
         return floor > current_floor
     return floor < current_floor
-
-
-def _is_before_or_same(first_floor: int, second_floor: int, direction: Direction) -> bool:
-    """Return whether the first floor comes before the second in a sweep direction."""
-    if direction == Direction.UP:
-        return first_floor <= second_floor
-    return first_floor >= second_floor
 
 
 def distance(first_floor: int, second_floor: int) -> int:

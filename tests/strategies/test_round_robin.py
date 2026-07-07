@@ -22,7 +22,7 @@ def test_plan_assigns_waiting_passengers_across_elevators_round_robin() -> None:
     assert decisions[0].assigned_passenger_ids == (1, 4)
     assert decisions[1].assigned_passenger_ids == (2,)
     assert decisions[2].assigned_passenger_ids == (3,)
-    assert decisions[0].stop_floors == (1, 7)
+    assert decisions[0].stop_floors == (1, 7, 4, 0)
     assert decisions[1].stop_floors == (2, 8)
     assert decisions[2].stop_floors == (3, 9)
 
@@ -77,11 +77,11 @@ def test_plan_includes_current_rider_destinations_before_new_pickups() -> None:
     decisions = RoundRobinStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (2,)
-    assert decisions[0].stop_floors == (6,)
+    assert decisions[0].stop_floors == (6, 3, 1)
 
 
-def test_plan_does_not_requeue_current_floor_pickup_during_service_with_onward_work() -> None:
-    """Round-robin omits destinations for current-floor passengers whose pickup is deferred."""
+def test_plan_defers_current_floor_pickup_behind_onward_work() -> None:
+    """Round-robin defers a current-floor opposite-direction pickup until after the onward sweep."""
     state = build_snapshot(
         elevators=(
             build_elevator(
@@ -101,7 +101,7 @@ def test_plan_does_not_requeue_current_floor_pickup_during_service_with_onward_w
     decisions = RoundRobinStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (1, 2)
-    assert decisions[0].stop_floors == (4, 8)
+    assert decisions[0].stop_floors == (4, 8, 2, 0)
 
 
 def test_plan_keeps_current_floor_pickup_when_it_matches_next_stop_direction() -> None:
@@ -125,7 +125,7 @@ def test_plan_keeps_current_floor_pickup_when_it_matches_next_stop_direction() -
     decisions = RoundRobinStrategy().plan(state)
 
     assert decisions[0].assigned_passenger_ids == (1, 2)
-    assert decisions[0].stop_floors == (3, 1)
+    assert decisions[0].stop_floors == (3, 1, 4, 9)
 
 
 def test_plan_keeps_current_floor_pickup_when_no_onward_work_exists() -> None:
