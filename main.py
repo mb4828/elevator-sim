@@ -19,7 +19,9 @@ from elevator_sim.workload.comparison import (
     StrategyComparisonResult,
     WorkloadConfig,
     build_performance_analysis_table,
+    build_service_quality_table,
     build_summary_statistics_table,
+    build_time_distribution_table,
     compare_strategies,
 )
 
@@ -132,6 +134,8 @@ def _print_results(
     console = Console(width=160)
     console.print(f"Simulation runtime: {simulation_runtime_seconds:.6f} seconds")
     console.print(build_summary_statistics_table(workload_size, results))
+    console.print(build_time_distribution_table(results))
+    console.print(build_service_quality_table(results))
     console.print(build_performance_analysis_table(results))
 
 

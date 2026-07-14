@@ -2,10 +2,14 @@
 
 Discrete-time elevator simulation harness for building and testing scheduling strategies.
 
-![screenshot.png](screenshot.png)
-
 **See [`frontend/`](frontend/) for the React app used to visualize the JSON output produced by the Python simulation
 script.**
+
+Estimated project time: <!-- project-time:start -->15h 3m<!-- project-time:end -->
+
+&copy; Copyright 2026 Matt Brauner
+
+![screenshot.png](screenshot.png)
 
 ### Assumptions / Simplifiactions / Tradeoffs
 
@@ -16,19 +20,34 @@ script.**
 
 ### What Could Be Improved
 
+- The simulation currently assigns every passenger to an elevator on the tick they enter (per [`INSTRUCTIONS.md`](INSTRUCTIONS.md)); allowing assignments to be deferred and revised over multiple ticks, rather than committed immediately, could yield further efficiency gains
 - Make simulation time based and simulate elevator speed, acceleration, and deceleration; simulate passenger loading and unloading times more realistically
 - Better passenger generation including simulations for start of day, lunch, end of day, and randomized traffic
 - Add passenger attrition for longer wait times
 - Incorporate supply-side factors to the performance analysis like electricity usage
-
-_Additionally:_
 - Allow for simultaneous testing of different elevator configurations, number of elevators, capacity, etc.
 - Allow for simultaneous testing of multiple passenger input files
 - Continue to refine the cost function for the minimum_cost strategy
 
-Estimated project time: <!-- project-time:start -->12h 33m<!-- project-time:end -->
 
-&copy; Copyright 2026 Matt Brauner
+### Fairness vs. Efficiency
+
+Comparing strategies across a mixed-traffic workload ([`sample_input.csv`](sample_data/sample_input.csv)) and a
+morning up-peak where everyone boards at the lobby ([`sample_rush_hour.csv`](sample_data/sample_rush_hour.csv))
+surfaced a few takeaways:
+
+- **No single strategy wins everywhere.** `minimum_cost` gives the lowest average wait on mixed traffic, while the
+  naive `round_robin` stays competitive across patterns because it distributes load structurally rather than reacting
+  to it.
+- **Traffic shape matters as much as the algorithm.** A pure up-peak is actually *easier* for most strategies (waits
+  drop ~30% vs. mixed traffic) because demand is predictable and batchable — provided the strategy keeps both cars busy
+  instead of stacking the crowd onto one.
+- **`minimum_cost` balances fairness against efficiency explicitly.** Its cost function scores each candidate car by
+  travel time plus a capacity penalty that scales with the passengers already assigned to it, so overflow spills to an
+  emptier car rather than piling onto the cheapest route.
+- **Average wait can hide unfairness.** The mean alone can look healthy while one car does most of the work — peak
+  queue, utilization, and worst-passenger wait are the metrics that expose an imbalanced load.
+
 
 ## Setup
 

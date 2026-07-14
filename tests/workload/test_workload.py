@@ -13,6 +13,8 @@ from elevator_sim.workload.comparison import (
     WorkloadConfig,
     build_summary_statistics_table,
     build_performance_analysis_table,
+    build_service_quality_table,
+    build_time_distribution_table,
     compare_strategies,
     create_workload_source,
 )
@@ -130,6 +132,120 @@ def test_build_summary_statistics_table_reports_passengers_and_total_ticks() -> 
     assert table.columns[1]._cells == ["2"]  # pylint: disable=protected-access
     assert table.columns[2]._cells == ["12"]  # pylint: disable=protected-access
     assert table.columns[8]._cells == ["12.50"]  # pylint: disable=protected-access
+
+
+def test_build_time_distribution_table_reports_wait_and_total_time_percentiles() -> None:
+    """Time distribution table reports p50 through p99 for wait and total times."""
+    table = build_time_distribution_table(
+        [
+            StrategyComparisonResult(
+                strategy_name="strategy",
+                result=SimulationResult(
+                    ticks=12,
+                    metrics=MetricsSummary(
+                        completed_passengers=10,
+                        average_wait_time=5.5,
+                        minimum_wait_time=1,
+                        maximum_wait_time=10,
+                        p50_wait_time=5.0,
+                        p90_wait_time=9.0,
+                        p95_wait_time=10.0,
+                        p99_wait_time=10.0,
+                        average_total_time=7.5,
+                        minimum_total_time=3,
+                        maximum_total_time=12,
+                        p50_total_time=7.0,
+                        p90_total_time=11.0,
+                        p95_total_time=12.0,
+                        p99_total_time=12.0,
+                    ),
+                    performance=PerformanceSummary(
+                        total_ticks=12,
+                        average_passengers_per_tick=0.0,
+                        peak_queue=4,
+                        total_riding_ticks=0,
+                        total_capacity_ticks=1,
+                        efficiency_score=0.0,
+                        utilization=62.5,
+                    ),
+                    passengers=(),
+                    state_log=(),
+                ),
+            )
+        ]
+    )
+
+    assert [column.header for column in table.columns] == [
+        "Strategy",
+        "Wait Time\nP50",
+        "Wait Time\nP90",
+        "Wait Time\nP95",
+        "Wait Time\nP99",
+        "Total Time\nP50",
+        "Total Time\nP90",
+        "Total Time\nP95",
+        "Total Time\nP99",
+    ]
+    assert table.columns[1]._cells == ["5.00"]  # pylint: disable=protected-access
+    assert table.columns[4]._cells == ["10.00"]  # pylint: disable=protected-access
+    assert table.columns[8]._cells == ["12.00"]  # pylint: disable=protected-access
+
+
+def test_build_service_quality_table_reports_fairness_overhead_and_worst_passenger() -> None:
+    """Service quality table reports wait spread, overhead ratios, and the worst-served passenger."""
+    table = build_service_quality_table(
+        [
+            StrategyComparisonResult(
+                strategy_name="strategy",
+                result=SimulationResult(
+                    ticks=12,
+                    metrics=MetricsSummary(
+                        completed_passengers=10,
+                        average_wait_time=5.5,
+                        minimum_wait_time=1,
+                        maximum_wait_time=10,
+                        p90_wait_time=9.0,
+                        wait_time_std_dev=2.87,
+                        max_average_wait_ratio=1.82,
+                        average_total_time=7.5,
+                        minimum_total_time=3,
+                        maximum_total_time=12,
+                        average_overhead_ratio=1.5,
+                        p95_overhead_ratio=2.0,
+                        worst_passenger_id="passenger7",
+                        worst_passenger_wait_time=10,
+                        worst_passenger_total_time=12,
+                    ),
+                    performance=PerformanceSummary(
+                        total_ticks=12,
+                        average_passengers_per_tick=0.0,
+                        peak_queue=4,
+                        total_riding_ticks=0,
+                        total_capacity_ticks=1,
+                        efficiency_score=0.0,
+                        utilization=62.5,
+                    ),
+                    passengers=(),
+                    state_log=(),
+                ),
+            )
+        ]
+    )
+
+    assert [column.header for column in table.columns] == [
+        "Strategy",
+        "Wait Time\nStd Dev",
+        "Wait Time\nMax/Avg",
+        "Overhead\nAvg",
+        "Overhead\nP95",
+        "Worst Passenger\nID",
+        "Worst Passenger\nWait",
+        "Worst Passenger\nTotal",
+    ]
+    assert table.columns[1]._cells == ["2.87"]  # pylint: disable=protected-access
+    assert table.columns[3]._cells == ["1.50"]  # pylint: disable=protected-access
+    assert table.columns[5]._cells == ["passenger7"]  # pylint: disable=protected-access
+    assert table.columns[7]._cells == ["12"]  # pylint: disable=protected-access
 
 
 def test_build_performance_analysis_table_reports_utilization_and_wait_time() -> None:

@@ -19,6 +19,11 @@ class MinimumCostStrategy(ElevatorStrategy):
     the lowest score.
     """
 
+    # Per-passenger cost added for each pending pickup at or beyond capacity.
+    # Higher values balance load harder under up-peak; lower values intrude
+    # less on normal mixed traffic.
+    capacity_penalty_weight: int = 4
+
     def plan(self, state: SimulationSnapshot) -> list[ElevatorDecision]:
         """Assign waiting passengers and return each elevator's next stop queue."""
         passenger_by_id = {passenger.id: passenger for passenger in state.passengers}
@@ -80,7 +85,7 @@ class MinimumCostStrategy(ElevatorStrategy):
             current_route,
         )
         direction_penalty = self._direction_penalty(elevator, passenger)
-        capacity_penalty = self._capacity_penalty(elevator)
+        capacity_penalty = self._capacity_penalty(elevator, assigned_passenger_ids, passenger_by_id)
 
         return pickup_time + dropoff_time + added_route_distance + direction_penalty + capacity_penalty
 
@@ -122,11 +127,27 @@ class MinimumCostStrategy(ElevatorStrategy):
             return 5
         return 0
 
-    def _capacity_penalty(self, elevator: ElevatorSnapshot) -> int:
-        """Softly discourage assigning to elevators that are currently full."""
-        if elevator.passenger_count < elevator.capacity:
+    def _capacity_penalty(
+        self,
+        elevator: ElevatorSnapshot,
+        assigned_passenger_ids: list[int],
+        passenger_by_id: dict[int, PassengerSnapshot],
+    ) -> int:
+        """Softly discourage overloading, counting riders plus pending pickups.
+
+        The penalty scales with how far past capacity the assignment would push
+        the elevator so that overflow spills to another car instead of stacking
+        onto one, even when both cars are physically empty at planning time.
+        """
+        pending_pickups = sum(
+            1
+            for passenger_id in assigned_passenger_ids
+            if passenger_by_id[passenger_id].status == PassengerStatus.WAITING
+        )
+        effective_load = elevator.passenger_count + pending_pickups
+        if effective_load < elevator.capacity:
             return 0
-        return 10
+        return self.capacity_penalty_weight * (effective_load - elevator.capacity + 1)
 
 
 def _time_to_floor(current_floor: int, route: tuple[int, ...], target_floor: int) -> int:

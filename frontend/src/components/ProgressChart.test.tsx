@@ -4,18 +4,24 @@ import ProgressChart from './ProgressChart';
 import { parseSimulation } from '../logic';
 import type { OutputFile } from '../logic';
 
-interface BarChartStubProps {
-  dataset?: Array<Record<string, unknown>>;
+interface ChartContainerStubProps {
+  series?: Array<Record<string, unknown>>;
+  yAxis?: Array<Record<string, unknown>>;
 }
 
-let lastBarChartProps: BarChartStubProps | undefined;
+let lastContainerProps: ChartContainerStubProps | undefined;
 
-vi.mock('@mui/x-charts/BarChart', () => ({
-  BarChart: (props: BarChartStubProps) => {
-    lastBarChartProps = props;
-    return <div data-testid="bar-chart" />;
+vi.mock('@mui/x-charts/ResponsiveChartContainer', () => ({
+  ResponsiveChartContainer: (props: ChartContainerStubProps) => {
+    lastContainerProps = props;
+    return <div data-testid="progress-chart" />;
   },
 }));
+vi.mock('@mui/x-charts/BarChart', () => ({ BarPlot: () => null }));
+vi.mock('@mui/x-charts/LineChart', () => ({ LinePlot: () => null }));
+vi.mock('@mui/x-charts/ChartsXAxis', () => ({ ChartsXAxis: () => null }));
+vi.mock('@mui/x-charts/ChartsYAxis', () => ({ ChartsYAxis: () => null }));
+vi.mock('@mui/x-charts/ChartsTooltip', () => ({ ChartsTooltip: () => null }));
 
 function sampleOutputFile(): OutputFile {
   return {
@@ -42,7 +48,7 @@ describe('ProgressChart', () => {
     render(<ProgressChart sim={sim} tick={0} />);
 
     expect(screen.getByText('No passengers have entered yet.')).toBeInTheDocument();
-    expect(screen.queryByTestId('bar-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('progress-chart')).not.toBeInTheDocument();
   });
 
   it('charts one stacked row per requested passenger with wait and ride segments', () => {
@@ -50,14 +56,14 @@ describe('ProgressChart', () => {
 
     render(<ProgressChart sim={sim} tick={2} />);
 
-    expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
-    expect(lastBarChartProps?.dataset).toHaveLength(1);
-    expect(lastBarChartProps?.dataset?.[0]).toMatchObject({
-      label: 'passenger1',
-      offset: 0,
-      waiting: 0,
-      riding: 2,
-    });
+    expect(screen.getByTestId('progress-chart')).toBeInTheDocument();
+    expect(lastContainerProps?.yAxis?.[0]?.data).toEqual(['passenger1']);
+    const seriesByLabel = Object.fromEntries(
+      (lastContainerProps?.series ?? []).map((series) => [series.label ?? 'offset', series.data]),
+    );
+    expect(seriesByLabel.offset).toEqual([0]);
+    expect(seriesByLabel.Waiting).toEqual([0]);
+    expect(seriesByLabel.Riding).toEqual([2]);
   });
 
   it('includes later passengers once the timeline reaches their request', () => {
@@ -65,7 +71,26 @@ describe('ProgressChart', () => {
 
     render(<ProgressChart sim={sim} tick={4} />);
 
-    expect(lastBarChartProps?.dataset).toHaveLength(2);
-    expect(lastBarChartProps?.dataset?.[1]).toMatchObject({ label: 'passenger2', offset: 3 });
+    expect(lastContainerProps?.yAxis?.[0]?.data).toEqual(['passenger1', 'passenger2']);
+    expect(lastContainerProps?.series?.[0]?.data).toEqual([0, 3]);
+  });
+
+  it('overlays the waiting queue length as a line revealed up to the current tick', () => {
+    const sim = parseSimulation(sampleOutputFile());
+
+    render(<ProgressChart sim={sim} tick={2} />);
+
+    const lineSeries = lastContainerProps?.series?.find((series) => series.type === 'line');
+    expect(lineSeries).toMatchObject({ yAxisKey: 'queue' });
+    expect(lineSeries?.data).toEqual([1, 0, 0, null, null]);
+  });
+
+  it('charts the full queue length history at the final tick', () => {
+    const sim = parseSimulation(sampleOutputFile());
+
+    render(<ProgressChart sim={sim} tick={4} />);
+
+    const lineSeries = lastContainerProps?.series?.find((series) => series.type === 'line');
+    expect(lineSeries?.data).toEqual([1, 0, 0, 1, 0]);
   });
 });

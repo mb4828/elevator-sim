@@ -5,7 +5,15 @@ import type { OutputFile } from './logic';
 
 vi.mock('@mui/x-charts/BarChart', () => ({
   BarChart: () => <div data-testid="bar-chart" />,
+  BarPlot: () => null,
 }));
+vi.mock('@mui/x-charts/ResponsiveChartContainer', () => ({
+  ResponsiveChartContainer: () => <div data-testid="progress-chart" />,
+}));
+vi.mock('@mui/x-charts/LineChart', () => ({ LinePlot: () => null }));
+vi.mock('@mui/x-charts/ChartsXAxis', () => ({ ChartsXAxis: () => null }));
+vi.mock('@mui/x-charts/ChartsYAxis', () => ({ ChartsYAxis: () => null }));
+vi.mock('@mui/x-charts/ChartsTooltip', () => ({ ChartsTooltip: () => null }));
 
 function validOutputFile(): OutputFile {
   return {
@@ -55,6 +63,7 @@ describe('App', () => {
     expect(await screen.findByText('Simulation')).toBeInTheDocument();
     expect(screen.getByText('Live Stats')).toBeInTheDocument();
     expect(screen.getByText('Passenger Progress')).toBeInTheDocument();
+    expect(screen.getByText('Wait Time Distribution')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Loaded run.json/ })).toBeInTheDocument();
   });
 

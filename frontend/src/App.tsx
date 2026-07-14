@@ -3,6 +3,7 @@ import { Alert, Box, Container, Paper, Stack, Typography } from "@mui/material";
 import Building from "./components/Building";
 import ProgressChart from "./components/ProgressChart";
 import StatsPanel from "./components/StatsPanel";
+import WaitTimeHistogram from "./components/WaitTimeHistogram";
 import SimulationToolbar from "./components/SimulationToolbar";
 import { usePlayback } from "./hooks/usePlayback";
 import { useKeyboardControls } from "./hooks/useKeyboardControls";
@@ -84,7 +85,18 @@ export default function App() {
                 <Building frame={frame} sim={sim} />
                 <StatsPanel lastTick={lastTick} stats={stats} />
               </Box>
-              <ProgressChart sim={sim} tick={frame.time} />
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 3fr) minmax(0, 1fr)" },
+                  gap: 3,
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                <ProgressChart sim={sim} tick={frame.time} />
+                <WaitTimeHistogram sim={sim} tick={frame.time} />
+              </Box>
             </>
           ) : (
             <Paper
