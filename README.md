@@ -5,7 +5,7 @@ Discrete-time elevator simulation harness for building and testing scheduling st
 **See [`frontend/`](frontend/) for the React app used to visualize the JSON output produced by the Python simulation
 script.**
 
-Estimated project time: <!-- project-time:start -->15h 3m<!-- project-time:end -->
+Estimated project time: <!-- project-time:start -->15h 14m<!-- project-time:end -->
 
 &copy; Copyright 2026 Matt Brauner
 
